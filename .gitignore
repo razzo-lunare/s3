@@ -1,3 +1,21 @@
+bin/
+_bin/
+config/fortuna.yml
+
+.DS_Store
+
+fortuna_diskache_place/
+out.csv
+
+environment.env
+
+allData
+
+.vscode
+
+*/hosts
+
+# Default .gitignore file from GitHub
 # Binaries for programs and plugins
 *.exe
 *.exe~
@@ -12,4 +30,5 @@
 *.out
 
 # Dependency directories (remove the comment below to include it)
-# vendor/
+vendor/
+# End Default .gitignore file from GitHub
