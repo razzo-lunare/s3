@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"time"
@@ -32,7 +33,7 @@ func Sync(newConfig *config.FortunaConfig, startDateStr string, endDateStr strin
 	var wgList sync.WaitGroup
 	var wgDownload sync.WaitGroup
 
-	for w := 1; w <= numCPU*2; w++ {
+	for w := 1; w <= numCPU; w++ {
 		go handleListObject(
 			newConfig,
 			&wgList,
@@ -154,12 +155,13 @@ func handleDownloadObject(newConfig *config.FortunaConfig, wg *sync.WaitGroup, f
 			err = writeDataFile(
 				s3Client,
 				newConfig.DigitalOceanS3StockDataBucketName,
-				stockFile,
 				fileJob.Name,
+				stockFile,
 			)
 			if err != nil {
 				fmt.Println("err ", err)
 			}
+			wg.Done()
 			continue
 		}
 
@@ -174,8 +176,8 @@ func handleDownloadObject(newConfig *config.FortunaConfig, wg *sync.WaitGroup, f
 			err = writeDataFile(
 				s3Client,
 				newConfig.DigitalOceanS3StockDataBucketName,
-				stockFile,
 				fileJob.Name,
+				stockFile,
 			)
 			if err != nil {
 				fmt.Println("err ", err)
@@ -208,11 +210,23 @@ func hash_file_md5(filePath string) (string, error) {
 }
 
 func writeDataFile(s3Client *minio.Client, s3bucketName string, s3FileObjectName string, tickerDestionationFile string) error {
-	fmt.Println("DOWNLOADING ", s3FileObjectName)
+	// fmt.Println("DOWNLOADING ", s3FileObjectName)
+
+	tickerDir := filepath.Dir(tickerDestionationFile)
+	file, err := os.Open(tickerDir)
+	if err != nil {
+		if err == os.ErrNotExist {
+			err = os.MkdirAll(tickerDir, os.ModeAppend)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	file.Close()
 
 	opts := minio.GetObjectOptions{}
 
-	err := s3Client.FGetObject(context.Background(), s3bucketName, s3FileObjectName, tickerDestionationFile, opts)
+	err = s3Client.FGetObject(context.Background(), s3bucketName, s3FileObjectName, tickerDestionationFile, opts)
 	if err != nil {
 		return err
 	}
