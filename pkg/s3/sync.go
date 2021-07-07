@@ -1,13 +1,13 @@
 package s3
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
 	"github.com/razzo-lunare/fortuna/pkg/config"
 	"github.com/razzo-lunare/fortuna/pkg/constants"
 	"github.com/razzo-lunare/fortuna/pkg/utils/market"
+	"github.com/razzo-lunare/s3/pkg/asciiterm"
 )
 
 type FileInfo struct {
@@ -45,17 +45,18 @@ func Sync(newConfig *config.FortunaConfig, startDateStr string, endDateStr strin
 		}
 	}
 
-	fmt.Println("Sending weekdays")
 	lastNWeekdays := market.GetWeekdays(startDate, endDate)
 	for weekday := range lastNWeekdays {
 		wgList.Add(1)
 		weekdays <- weekday
 	}
 	close(weekdays)
+	asciiterm.PrintfInfo("%s, %d\n", "generate all stock market dates in user specified range", len(lastNWeekdays))
 
 	count := 0
 	for range downloadedFiles {
-		fmt.Printf("\rDownload s3 object Count: %d", count)
+		asciiterm.PrintfWarn("Download s3 object Count: %d", count)
+
 		count++
 	}
 

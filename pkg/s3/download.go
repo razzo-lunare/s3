@@ -11,6 +11,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/razzo-lunare/fortuna/pkg/config"
+	"github.com/razzo-lunare/s3/pkg/asciiterm"
 )
 
 // VerifyFiles if the file doesn't exist on the filesystem or the md5 sum doesn't match
@@ -37,7 +38,8 @@ func downloadS3Files(fortunaConfig *config.FortunaConfig, inputFiles <-chan *Fil
 		)
 	}
 	wg.Wait()
-	// fmt.Println("Done with: file download")
+	asciiterm.PrintfInfo("%s\n", "download all new s3 objects")
+
 	close(outputFileInfo)
 }
 
@@ -53,7 +55,7 @@ func handleDownloadS3ObjectNew(wg *sync.WaitGroup, newConfig *config.FortunaConf
 	}
 
 	for fileJob := range inputFiles {
-		tickerDestionationFile := "../fortuna-stock-data1/" + fileJob.Name
+		tickerDestionationFile := "../fortuna-stock-data/" + fileJob.Name
 
 		tickerDir := filepath.Dir(tickerDestionationFile)
 		file, err := os.Open(tickerDir)

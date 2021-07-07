@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/razzo-lunare/fortuna/pkg/config"
+	"github.com/razzo-lunare/s3/pkg/asciiterm"
 )
 
 // VerifyFiles if the file doesn't exist on the filesystem or the md5 sum doesn't match
@@ -38,7 +39,7 @@ func verifyS3Files(fortunaConfig *config.FortunaConfig, inputFiles <-chan *FileI
 		)
 	}
 	wg.Wait()
-	// fmt.Println("Done with: file verify")
+	asciiterm.PrintfInfo("%s\n", "discover files to download")
 	close(outputFileInfo)
 }
 
@@ -47,7 +48,7 @@ func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.FortunaConfig, i
 
 	for fileJob := range inputFiles {
 		// TODO this should be a config option
-		stockFile := "../fortuna-stock-data1/" + fileJob.Name
+		stockFile := "../fortuna-stock-data/" + fileJob.Name
 		// S3 OBJECT DOESN'T EXIT ON THE FILESYSTEM
 		if _, err := os.Stat(stockFile); errors.Is(err, fs.ErrNotExist) {
 			// download the file from s3

@@ -9,6 +9,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/razzo-lunare/fortuna/pkg/config"
+	"github.com/razzo-lunare/s3/pkg/asciiterm"
 )
 
 // func ListS3Files1() <-chan int {
@@ -42,7 +43,7 @@ func listS3Files(fortunaConfig *config.FortunaConfig, inputWeekDay <-chan string
 		)
 	}
 	wg.Wait()
-	// fmt.Println("Done with: file list")
+	asciiterm.PrintfInfo("%s\n", "List all files in s3")
 	close(outputFileInfo)
 }
 
