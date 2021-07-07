@@ -25,7 +25,7 @@ func main() {
 
 	// Attach the cli indicator default flags
 	syncCmd.Flags().StringP("config", "", "/etc/fortuna/fortuna.yml", "Fortuna Config")
-	syncCmd.Flags().StringP("start-date", "", "12-24-2020", "Date on when to start the simulation")
+	syncCmd.Flags().StringP("start-date", "", "2021-01-01", "Date on when to start the simulation")
 	syncCmd.Flags().StringP("end-date", "", "TODAY", "Date on when to start the simulation")
 
 	if err := rootCmd.Execute(); err != nil {
