@@ -1,23 +1,21 @@
-
-APP_NAME="github.com/razzo-lunare/fortuna"
-
-path_to_repo="$${go env GOPATH}/src/${APP_NAME}"
+GOOS=darwin
+GOARCH=amd64
 
 .PHONY: build
 b: build
 build: test
 	mkdir -p _bin
-	go build -o _bin/ github.com/razzo-lunare/s3/cmd/s3
+	env GOOS=${GOOS} GOARCH=${GOARCH} GOARM=6 go build -ldflags="-s -w" -o _bin/s3.${GOOS}.${GOARCH} github.com/razzo-lunare/s3/cmd/s3
 
 .PHONY: build-l
-build-l: test
-	mkdir -p _bin
-	env GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o _bin/ github.com/razzo-lunare/s3/cmd/s3
+build-l: GOOS=linux
+build-l: GOARCH=amd64
+build-l: build
 
 .PHONY: build-a
-build-a: test
-	mkdir -p _bin
-	env GOOS=linux GOARCH=arm GOARM=6 go build -ldflags="-s -w" -o _bin/ github.com/razzo-lunare/s3/cmd/s3
+build-a: GOOS=linux
+build-a: GOARCH=arm
+build-a: build
 
 .PHONY: clean
 c: clean
