@@ -55,6 +55,7 @@ func handleDownloadS3ObjectNew(wg *sync.WaitGroup, newConfig *config.FortunaConf
 	}
 
 	for fileJob := range inputFiles {
+		// TODO add ticker destination as a CLI flag!!
 		tickerDestionationFile := "../fortuna-stock-data/" + fileJob.Name
 
 		tickerDir := filepath.Dir(tickerDestionationFile)
