@@ -1,13 +1,8 @@
 package s3
 
 import (
-	"sync"
-	"time"
-
-	"github.com/razzo-lunare/fortuna/pkg/config"
-	"github.com/razzo-lunare/fortuna/pkg/constants"
-	"github.com/razzo-lunare/fortuna/pkg/utils/market"
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
+	"github.com/razzo-lunare/s3/pkg/config"
 )
 
 type FileInfo struct {
@@ -15,47 +10,16 @@ type FileInfo struct {
 	md5  string
 }
 
-func Sync(newConfig *config.FortunaConfig, startDateStr string, endDateStr string) error {
-	weekdays := make(chan string, 10001)
-	var wgList sync.WaitGroup
+func Sync(newConfig *config.S3Config, s3Prefix string, destinationDir string) error {
 
-	s3Files := ListS3Files(newConfig, weekdays)
-	s3FilesToDownload := VerifyS3Files(newConfig, s3Files)
-	downloadedFiles := DownloadS3Files(newConfig, s3FilesToDownload)
-
-	// todo move this ugly date logic into it's own function
-	startDate, err := time.Parse(constants.FortunaFileFormat, startDateStr)
-	if err != nil {
-		return err
-	}
-	endDate := time.Time{}
-	if endDateStr == "TODAY" {
-		// Create a string and parse it so the hour,minute and second are zero
-		// to be consistant every time the app runs
-		today := time.Now().Format(constants.FortunaFileFormat)
-		endDate, err = time.Parse(constants.FortunaFileFormat, today)
-		if err != nil {
-			return err
-		}
-	} else {
-		// TODO CHANGE THIS DATE TO constants.FortunaFileFormat
-		endDate, err = time.Parse(constants.FortunaFileFormat, endDateStr)
-		if err != nil {
-			return err
-		}
-	}
-
-	lastNWeekdays := market.GetWeekdays(startDate, endDate)
-	for weekday := range lastNWeekdays {
-		wgList.Add(1)
-		weekdays <- weekday
-	}
-	close(weekdays)
-	asciiterm.PrintfInfo("%s, %d\n", "generate all stock market dates in user specified range", len(lastNWeekdays))
+	// Pipeline to download s3 files through multiple pools of goroutines
+	s3Files := ListS3Files(newConfig, s3Prefix)
+	s3FilesToDownload := VerifyS3Files(newConfig, destinationDir, s3Files)
+	downloadedFiles := DownloadS3Files(newConfig, destinationDir, s3FilesToDownload)
 
 	count := 0
 	for range downloadedFiles {
-		asciiterm.PrintfWarn("Download s3 object Count: %d", count)
+		asciiterm.PrintfWarn("Downloaded s3 object Count: %d", count)
 
 		count++
 	}

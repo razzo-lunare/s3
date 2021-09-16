@@ -7,6 +7,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/klog/v2"
+
+	"github.com/razzo-lunare/s3/cmd/s3/sync"
 )
 
 var rootCmd = &cobra.Command{
@@ -21,12 +23,9 @@ func init() {
 }
 
 func main() {
-	rootCmd.AddCommand(syncCmd)
-
-	// Attach the cli indicator default flags
-	syncCmd.Flags().StringP("config", "", "/etc/fortuna/fortuna.yml", "Fortuna Config")
-	syncCmd.Flags().StringP("start-date", "", "2021-01-01", "Date on when to start the simulation")
-	syncCmd.Flags().StringP("end-date", "", "TODAY", "Date on when to start the simulation")
+	rootCmd.AddCommand(
+		sync.NewCommand(),
+	)
 
 	if err := rootCmd.Execute(); err != nil {
 		klog.Errorf("Error executing cmd. %s", err)

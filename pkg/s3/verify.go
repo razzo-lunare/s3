@@ -10,22 +10,23 @@ import (
 	"os"
 	"runtime"
 	"sync"
+	"time"
 
-	"github.com/razzo-lunare/fortuna/pkg/config"
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
+	"github.com/razzo-lunare/s3/pkg/config"
 )
 
 // VerifyFiles if the file doesn't exist on the filesystem or the md5 sum doesn't match
 // make that the file needs to be downloaded
-func VerifyS3Files(fortunaConfig *config.FortunaConfig, inputFiles <-chan *FileInfo) <-chan *FileInfo {
+func VerifyS3Files(fortunaConfig *config.S3Config, destinationDir string, inputFiles <-chan *FileInfo) <-chan *FileInfo {
 	outputFileInfo := make(chan *FileInfo)
 
-	go verifyS3Files(fortunaConfig, inputFiles, outputFileInfo)
+	go verifyS3Files(fortunaConfig, destinationDir, inputFiles, outputFileInfo)
 
 	return outputFileInfo
 }
 
-func verifyS3Files(fortunaConfig *config.FortunaConfig, inputFiles <-chan *FileInfo, outputFileInfo chan<- *FileInfo) {
+func verifyS3Files(fortunaConfig *config.S3Config, destinationDir string, inputFiles <-chan *FileInfo, outputFileInfo chan<- *FileInfo) {
 	numCPU := runtime.NumCPU()
 	wg := &sync.WaitGroup{}
 
@@ -34,21 +35,26 @@ func verifyS3Files(fortunaConfig *config.FortunaConfig, inputFiles <-chan *FileI
 		go handleVerifyS3Object(
 			wg,
 			fortunaConfig,
+			destinationDir,
 			inputFiles,
 			outputFileInfo,
 		)
 	}
 	wg.Wait()
-	asciiterm.PrintfInfo("%s\n", "discover files to download")
 	close(outputFileInfo)
+
+	asciiterm.PrintfInfo("discovered all files that have to be download\n")
+	time.Sleep(1 * time.Second)
+
 }
 
 // handleListS3Object gathers the files in the S3
-func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.FortunaConfig, inputFiles <-chan *FileInfo, outputFileInfo chan<- *FileInfo) {
+func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.S3Config, destinationDir string, inputFiles <-chan *FileInfo, outputFileInfo chan<- *FileInfo) {
 
 	for fileJob := range inputFiles {
-		// TODO this should be a config option
-		stockFile := "../fortuna-stock-data/" + fileJob.Name
+
+		stockFile := destinationDir + fileJob.Name
+
 		// S3 OBJECT DOESN'T EXIT ON THE FILESYSTEM
 		if _, err := os.Stat(stockFile); errors.Is(err, fs.ErrNotExist) {
 			// download the file from s3

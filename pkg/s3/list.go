@@ -4,51 +4,96 @@ import (
 	"context"
 	"fmt"
 	"runtime"
-	"sync"
+	"strings"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
-	"github.com/razzo-lunare/fortuna/pkg/config"
+
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
+	"github.com/razzo-lunare/s3/pkg/config"
 )
 
-// func ListS3Files1() <-chan int {
-// 	out := make(chan int, len(nums))
-// 	for _, n := range nums {
-// 		out <- n
-// 	}
-// 	close(out)
-// 	return out
-// }
-
-func ListS3Files(fortunaConfig *config.FortunaConfig, weekDay <-chan string) <-chan *FileInfo {
+func ListS3Files(fortunaConfig *config.S3Config, s3Prefix string) <-chan *FileInfo {
+	asciiterm.PrintfWarn("Listing all files in s3 under: %s", s3Prefix)
 	fileInfo := make(chan *FileInfo)
 
-	go listS3Files(fortunaConfig, weekDay, fileInfo)
+	go listS3Files(fortunaConfig, s3Prefix, fileInfo)
 
 	return fileInfo
 }
 
-func listS3Files(fortunaConfig *config.FortunaConfig, inputWeekDay <-chan string, outputFileInfo chan<- *FileInfo) {
-	numCPU := runtime.NumCPU()
-	wg := &sync.WaitGroup{}
+type GoRoutineStatus struct {
+	state []int
+}
 
-	for w := 1; w <= numCPU/2; w++ {
-		wg.Add(1)
-		go handleListS3Object1(
-			wg,
+func NewGoRoutineStatus(numberOfGoRoutines int) *GoRoutineStatus {
+	return &GoRoutineStatus{
+		state: make([]int, numberOfGoRoutines),
+	}
+}
+
+func (g *GoRoutineStatus) SetStateRunning(goRoutineID int) {
+	g.state[goRoutineID] = 1
+}
+
+func (g *GoRoutineStatus) SetStateDone(goRoutineID int) {
+	g.state[goRoutineID] = 0
+}
+
+func (g *GoRoutineStatus) IsAllDone() bool {
+	for _, state := range g.state {
+		if state == 1 {
+			return false
+		}
+	}
+	return true
+}
+
+func listS3Files(fortunaConfig *config.S3Config, s3Prefix string, outputFileInfo chan<- *FileInfo) {
+
+	numCPU := runtime.NumCPU()
+	// wg := &sync.WaitGroup{}
+
+	s3Prefixes := make(chan string, 10001)
+	goRoutineStatus := NewGoRoutineStatus(numCPU / 2)
+	for w := 0; w < numCPU/2; w++ {
+		go handleListS3ObjectRecursive(
+			w,
+			goRoutineStatus,
 			fortunaConfig,
-			inputWeekDay,
+			s3Prefixes,
 			outputFileInfo,
 		)
 	}
-	wg.Wait()
-	asciiterm.PrintfInfo("%s\n", "List all files in s3")
+
+	// send the first prefix to the pool then the rest will search recursively
+	s3Prefixes <- s3Prefix
+
+	// Verify no jobs come in for 5 seconds
+	totalIsAllDones := 0
+	for {
+		time.Sleep(1 * time.Second)
+		if goRoutineStatus.IsAllDone() {
+			totalIsAllDones++
+			if totalIsAllDones == 5 {
+				break
+			}
+		} else {
+			totalIsAllDones = 0
+		}
+	}
+
+	// Kill all list goroutines since there is no more data
+	close(s3Prefixes)
+
 	close(outputFileInfo)
+	asciiterm.PrintfInfo("Finished Listing all files in s3\n")
+	time.Sleep(1 * time.Second)
 }
 
-// handleListS3Object gathers the files in the S3
-func handleListS3Object1(wg *sync.WaitGroup, newConfig *config.FortunaConfig, inputWeekday <-chan string, outputFileInfo chan<- *FileInfo) {
+// handleListS3ObjectRecursive gathers the files in the S3
+func handleListS3ObjectRecursive(id int, goRoutineStatus *GoRoutineStatus, newConfig *config.S3Config, s3Prefixes chan string, outputFileInfo chan<- *FileInfo) {
 
 	s3Client, err := minio.New(newConfig.DigitalOceanS3Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(newConfig.DigitalOceanS3AccessKeyID, newConfig.DigitalOceanS3SecretAccessKey, ""),
@@ -58,17 +103,27 @@ func handleListS3Object1(wg *sync.WaitGroup, newConfig *config.FortunaConfig, in
 		fmt.Println(err)
 	}
 
-	for weekDayListJob := range inputWeekday {
+	for s3PrefixJob := range s3Prefixes {
+
+		goRoutineStatus.SetStateRunning(id)
 
 		opts := minio.ListObjectsOptions{
 			UseV1:        false,
 			WithVersions: false,
-			Prefix:       fmt.Sprintf("TIME_SERIES_INTRADAY_V2/1min/%s/", weekDayListJob),
-			// Recursive:    true,
-			MaxKeys: 1000,
+			Prefix:       s3PrefixJob,
+			Recursive:    false,
+			MaxKeys:      5000,
 		}
 
 		for object := range s3Client.ListObjects(context.Background(), newConfig.DigitalOceanS3StockDataBucketName, opts) {
+			if isDir(object.Key) {
+
+				newPrefix := object.Key
+				s3Prefixes <- newPrefix
+
+				continue
+			}
+
 			newFile := &FileInfo{
 				Name: object.Key,
 				md5:  object.ETag,
@@ -81,8 +136,13 @@ func handleListS3Object1(wg *sync.WaitGroup, newConfig *config.FortunaConfig, in
 
 			outputFileInfo <- newFile
 		}
-	}
-	wg.Done()
 
-	// List all objects from a bucket-name with a matching prefix.
+		goRoutineStatus.SetStateDone(id)
+
+	}
+
+}
+
+func isDir(objectPath string) bool {
+	return strings.HasSuffix(objectPath, "/")
 }
