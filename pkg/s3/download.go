@@ -18,15 +18,15 @@ import (
 
 // VerifyFiles if the file doesn't exist on the filesystem or the md5 sum doesn't match
 // make that the file needs to be downloaded
-func DownloadS3Files(fortunaConfig *config.S3Config, destinationDir string, inputFiles <-chan *FileInfo) <-chan *FileInfo {
+func DownloadS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *FileInfo) <-chan *FileInfo {
 	outputFileInfo := make(chan *FileInfo)
 
-	go downloadS3Files(fortunaConfig, destinationDir, inputFiles, outputFileInfo)
+	go downloadS3Files(s3Config, destinationDir, inputFiles, outputFileInfo)
 
 	return outputFileInfo
 }
 
-func downloadS3Files(fortunaConfig *config.S3Config, destinationDir string, inputFiles <-chan *FileInfo, outputFileInfo chan<- *FileInfo) {
+func downloadS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *FileInfo, outputFileInfo chan<- *FileInfo) {
 	numCPU := runtime.NumCPU()
 	wg := &sync.WaitGroup{}
 
@@ -34,7 +34,7 @@ func downloadS3Files(fortunaConfig *config.S3Config, destinationDir string, inpu
 		wg.Add(1)
 		go handleDownloadS3ObjectNew(
 			wg,
-			fortunaConfig,
+			s3Config,
 			destinationDir,
 			inputFiles,
 			outputFileInfo,

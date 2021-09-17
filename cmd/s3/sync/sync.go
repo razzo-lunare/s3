@@ -38,9 +38,9 @@ var syncCmd = &cobra.Command{
 
 func NewCommand() *cobra.Command {
 	// Attach the cli indicator default flags
-	syncCmd.Flags().StringP("config", "", "/etc/fortuna/fortuna.yml", "Fortuna Config")
+	syncCmd.Flags().StringP("config", "", "/etc/s3/s3Config.yml", "S3 Config")
 	syncCmd.Flags().StringP("s3-prefix", "", "TIME_SERIES_INTRADAY_V2/1min/", "Prefix to filter the contents of the bucket")
-	syncCmd.Flags().StringP("destination-dir", "", "../fortuna-stock-data/", "Destination to download s3 contents too")
+	syncCmd.Flags().StringP("destination-dir", "", "./", "Destination to download s3 contents too")
 
 	return syncCmd
 }

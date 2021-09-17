@@ -14,11 +14,11 @@ import (
 	"github.com/razzo-lunare/s3/pkg/config"
 )
 
-func ListS3Files(fortunaConfig *config.S3Config, s3Prefix string) <-chan *FileInfo {
+func ListS3Files(s3Config *config.S3Config, s3Prefix string) <-chan *FileInfo {
 	asciiterm.PrintfWarn("Listing all files in s3 under: %s", s3Prefix)
 	fileInfo := make(chan *FileInfo)
 
-	go listS3Files(fortunaConfig, s3Prefix, fileInfo)
+	go listS3Files(s3Config, s3Prefix, fileInfo)
 
 	return fileInfo
 }
@@ -50,7 +50,7 @@ func (g *GoRoutineStatus) IsAllDone() bool {
 	return true
 }
 
-func listS3Files(fortunaConfig *config.S3Config, s3Prefix string, outputFileInfo chan<- *FileInfo) {
+func listS3Files(s3Config *config.S3Config, s3Prefix string, outputFileInfo chan<- *FileInfo) {
 
 	numCPU := runtime.NumCPU()
 	// wg := &sync.WaitGroup{}
@@ -61,7 +61,7 @@ func listS3Files(fortunaConfig *config.S3Config, s3Prefix string, outputFileInfo
 		go handleListS3ObjectRecursive(
 			w,
 			goRoutineStatus,
-			fortunaConfig,
+			s3Config,
 			s3Prefixes,
 			outputFileInfo,
 		)

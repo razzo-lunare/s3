@@ -20,7 +20,7 @@ type S3Config struct {
 
 // NewConfig returns a new config
 func NewConfig(pathToConfig string) (*S3Config, error) {
-	var fortunaConfig *S3Config = &S3Config{}
+	var s3Config *S3Config = &S3Config{}
 	jsonFile, err := os.Open(pathToConfig)
 	if err != nil {
 		return nil, fmt.Errorf("Opening config %s", err.Error())
@@ -32,12 +32,12 @@ func NewConfig(pathToConfig string) (*S3Config, error) {
 	}
 
 	klog.V(10).Infof("Config File Content: %s", string(byteValue))
-	klog.V(10).Infof("Config Object: %+v", fortunaConfig)
+	klog.V(10).Infof("Config Object: %+v", s3Config)
 
-	err = yaml.Unmarshal(byteValue, fortunaConfig)
+	err = yaml.Unmarshal(byteValue, s3Config)
 	if err != nil {
 		return nil, fmt.Errorf("Unmarshalling config: %s", err.Error())
 	}
 
-	return fortunaConfig, nil
+	return s3Config, nil
 }
