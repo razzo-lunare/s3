@@ -1,0 +1,7 @@
+# -------- S3 Creds (this should work with any S3)
+# Currently the digital ocean api is only used when downloading new data
+digital_ocean_s3_stock_data_bucket_name: "fortuna-stock-data-new"
+digital_ocean_s3_endpoint: "sfo2.digitaloceanspaces.com"
+digital_ocean_s3_access_key_id: "TODO"
+digital_ocean_s3_secret_access_key: "TODO"
+digital_ocean_s3_create_bucket: false
