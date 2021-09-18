@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
-	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -19,7 +18,7 @@ import (
 // VerifyFiles if the file doesn't exist on the filesystem or the md5 sum doesn't match
 // make that the file needs to be downloaded
 func DownloadS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *FileInfo) <-chan *FileInfo {
-	outputFileInfo := make(chan *FileInfo)
+	outputFileInfo := make(chan *FileInfo, 500)
 
 	go downloadS3Files(s3Config, destinationDir, inputFiles, outputFileInfo)
 
@@ -41,11 +40,9 @@ func downloadS3Files(s3Config *config.S3Config, destinationDir string, inputFile
 		)
 	}
 	wg.Wait()
-
 	close(outputFileInfo)
 
 	asciiterm.PrintfInfo("downloaded all s3 objects\n")
-	time.Sleep(1 * time.Second)
 }
 
 // handleListS3Object gathers the files in the S3

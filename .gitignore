@@ -32,3 +32,6 @@ allData
 # Dependency directories (remove the comment below to include it)
 vendor/
 # End Default .gitignore file from GitHub
+
+# config
+configs/s3.yaml

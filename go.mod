@@ -7,6 +7,7 @@ require (
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+	k8s.io/component-base v0.22.2
 	k8s.io/klog/v2 v2.20.0
 )
 
@@ -24,9 +25,10 @@ require (
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/rs/xid v1.2.1 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
-	golang.org/x/crypto v0.0.0-20201216223049-8b5274cf687f // indirect
-	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4 // indirect
-	golang.org/x/sys v0.0.0-20210510120138-977fb7262007 // indirect
-	golang.org/x/text v0.3.5 // indirect
+	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83 // indirect
+	golang.org/x/net v0.0.0-20210520170846-37e1c6afe023 // indirect
+	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22 // indirect
+	golang.org/x/text v0.3.6 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
+	k8s.io/apimachinery v0.22.2 // indirect
 )

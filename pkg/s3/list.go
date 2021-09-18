@@ -16,38 +16,11 @@ import (
 
 func ListS3Files(s3Config *config.S3Config, s3Prefix string) <-chan *FileInfo {
 	asciiterm.PrintfWarn("Listing all files in s3 under: %s", s3Prefix)
-	fileInfo := make(chan *FileInfo)
+	fileInfo := make(chan *FileInfo, 500)
 
 	go listS3Files(s3Config, s3Prefix, fileInfo)
 
 	return fileInfo
-}
-
-type GoRoutineStatus struct {
-	state []int
-}
-
-func NewGoRoutineStatus(numberOfGoRoutines int) *GoRoutineStatus {
-	return &GoRoutineStatus{
-		state: make([]int, numberOfGoRoutines),
-	}
-}
-
-func (g *GoRoutineStatus) SetStateRunning(goRoutineID int) {
-	g.state[goRoutineID] = 1
-}
-
-func (g *GoRoutineStatus) SetStateDone(goRoutineID int) {
-	g.state[goRoutineID] = 0
-}
-
-func (g *GoRoutineStatus) IsAllDone() bool {
-	for _, state := range g.state {
-		if state == 1 {
-			return false
-		}
-	}
-	return true
 }
 
 func listS3Files(s3Config *config.S3Config, s3Prefix string, outputFileInfo chan<- *FileInfo) {
@@ -70,15 +43,17 @@ func listS3Files(s3Config *config.S3Config, s3Prefix string, outputFileInfo chan
 	// send the first prefix to the pool then the rest will search recursively
 	s3Prefixes <- s3Prefix
 
+	// TODO: This is slow... I need to figure out how to speed it up
 	// Verify no jobs come in for 5 seconds
 	totalIsAllDones := 0
 	for {
-		time.Sleep(1 * time.Second)
-		if goRoutineStatus.IsAllDone() {
+		if goRoutineStatus.IsAllDone(s3Prefixes) {
 			totalIsAllDones++
-			if totalIsAllDones == 5 {
+			// Take into account any false alarms
+			if totalIsAllDones == 2 {
 				break
 			}
+			time.Sleep(200 * time.Millisecond)
 		} else {
 			totalIsAllDones = 0
 		}
@@ -86,10 +61,9 @@ func listS3Files(s3Config *config.S3Config, s3Prefix string, outputFileInfo chan
 
 	// Kill all list goroutines since there is no more data
 	close(s3Prefixes)
-
 	close(outputFileInfo)
+
 	asciiterm.PrintfInfo("Finished Listing all files in s3\n")
-	time.Sleep(1 * time.Second)
 }
 
 // handleListS3ObjectRecursive gathers the files in the S3
@@ -145,4 +119,35 @@ func handleListS3ObjectRecursive(id int, goRoutineStatus *GoRoutineStatus, newCo
 
 func isDir(objectPath string) bool {
 	return strings.HasSuffix(objectPath, "/")
+}
+
+type GoRoutineStatus struct {
+	state []int
+}
+
+func NewGoRoutineStatus(numberOfGoRoutines int) *GoRoutineStatus {
+	return &GoRoutineStatus{
+		state: make([]int, numberOfGoRoutines),
+	}
+}
+
+func (g *GoRoutineStatus) SetStateRunning(goRoutineID int) {
+	g.state[goRoutineID] = 1
+}
+
+func (g *GoRoutineStatus) SetStateDone(goRoutineID int) {
+	g.state[goRoutineID] = 0
+}
+
+func (g *GoRoutineStatus) IsAllDone(thing chan string) bool {
+	if len(thing) != 0 {
+		return false
+	}
+
+	for _, state := range g.state {
+		if state == 1 {
+			return false
+		}
+	}
+	return true
 }

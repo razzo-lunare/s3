@@ -10,7 +10,6 @@ import (
 	"os"
 	"runtime"
 	"sync"
-	"time"
 
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
 	"github.com/razzo-lunare/s3/pkg/config"
@@ -19,7 +18,7 @@ import (
 // VerifyFiles if the file doesn't exist on the filesystem or the md5 sum doesn't match
 // make that the file needs to be downloaded
 func VerifyS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *FileInfo) <-chan *FileInfo {
-	outputFileInfo := make(chan *FileInfo)
+	outputFileInfo := make(chan *FileInfo, 500)
 
 	go verifyS3Files(s3Config, destinationDir, inputFiles, outputFileInfo)
 
@@ -40,12 +39,11 @@ func verifyS3Files(s3Config *config.S3Config, destinationDir string, inputFiles 
 			outputFileInfo,
 		)
 	}
+	// wait for all items to be verified
 	wg.Wait()
 	close(outputFileInfo)
 
-	asciiterm.PrintfInfo("discovered all files that have to be download\n")
-	time.Sleep(1 * time.Second)
-
+	asciiterm.PrintfInfo("Identified files that need to be downloaded, %d\n", len(outputFileInfo))
 }
 
 // handleListS3Object gathers the files in the S3
@@ -54,7 +52,7 @@ func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.S3Config, destin
 	for fileJob := range inputFiles {
 
 		stockFile := destinationDir + fileJob.Name
-
+		// fmt.Println("File: ", stockFile)
 		// S3 OBJECT DOESN'T EXIT ON THE FILESYSTEM
 		if _, err := os.Stat(stockFile); errors.Is(err, fs.ErrNotExist) {
 			// download the file from s3
@@ -78,6 +76,8 @@ func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.S3Config, destin
 		}
 
 	}
+
+	// Notify parent proccess that all items have been verified
 	wg.Done()
 }
 
