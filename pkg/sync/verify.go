@@ -1,4 +1,4 @@
-package s3
+package sync
 
 import (
 	"crypto/md5"
@@ -13,19 +13,20 @@ import (
 
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
 	"github.com/razzo-lunare/s3/pkg/config"
+	"github.com/razzo-lunare/s3/pkg/types"
 )
 
 // VerifyFiles if the file doesn't exist on the filesystem or the md5 sum doesn't match
 // make that the file needs to be downloaded
-func VerifyS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *FileInfo) <-chan *FileInfo {
-	outputFileInfo := make(chan *FileInfo, 500)
+func VerifyS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *types.FileInfo) <-chan *types.FileInfo {
+	outputFileInfo := make(chan *types.FileInfo, 500)
 
 	go verifyS3Files(s3Config, destinationDir, inputFiles, outputFileInfo)
 
 	return outputFileInfo
 }
 
-func verifyS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *FileInfo, outputFileInfo chan<- *FileInfo) {
+func verifyS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *types.FileInfo, outputFileInfo chan<- *types.FileInfo) {
 	numCPU := runtime.NumCPU()
 	wg := &sync.WaitGroup{}
 
@@ -43,17 +44,17 @@ func verifyS3Files(s3Config *config.S3Config, destinationDir string, inputFiles 
 	wg.Wait()
 	close(outputFileInfo)
 
-	asciiterm.PrintfInfo("Identified files that need to be downloaded, %d\n", len(outputFileInfo))
+	asciiterm.PrintfInfo("Identified files that need to be downloaded\n")
 }
 
 // handleListS3Object gathers the files in the S3
-func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.S3Config, destinationDir string, inputFiles <-chan *FileInfo, outputFileInfo chan<- *FileInfo) {
+func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.S3Config, destinationDir string, inputFiles <-chan *types.FileInfo, outputFileInfo chan<- *types.FileInfo) {
 
 	for fileJob := range inputFiles {
 
 		stockFile := destinationDir + fileJob.Name
-		// fmt.Println("File: ", stockFile)
-		// S3 OBJECT DOESN'T EXIT ON THE FILESYSTEM
+
+		// S3 object doesn't exist on filesystem
 		if _, err := os.Stat(stockFile); errors.Is(err, fs.ErrNotExist) {
 			// download the file from s3
 			outputFileInfo <- fileJob
@@ -68,7 +69,7 @@ func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.S3Config, destin
 		}
 
 		// S3 OBJECT MD5 DOESN'T MATCH THE FILE ON THE FILESYSTEM
-		if fileOnDiskMd5 != fileJob.md5 {
+		if fileOnDiskMd5 != fileJob.MD5 {
 			fmt.Println("UPDATE: %s" + fileJob.Name)
 
 			// download the file from s3

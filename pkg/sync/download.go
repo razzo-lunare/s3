@@ -1,4 +1,4 @@
-package s3
+package sync
 
 import (
 	"context"
@@ -13,19 +13,20 @@ import (
 
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
 	"github.com/razzo-lunare/s3/pkg/config"
+	"github.com/razzo-lunare/s3/pkg/types"
 )
 
 // VerifyFiles if the file doesn't exist on the filesystem or the md5 sum doesn't match
 // make that the file needs to be downloaded
-func DownloadS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *FileInfo) <-chan *FileInfo {
-	outputFileInfo := make(chan *FileInfo, 500)
+func DownloadS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *types.FileInfo) <-chan *types.FileInfo {
+	outputFileInfo := make(chan *types.FileInfo, 500)
 
 	go downloadS3Files(s3Config, destinationDir, inputFiles, outputFileInfo)
 
 	return outputFileInfo
 }
 
-func downloadS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *FileInfo, outputFileInfo chan<- *FileInfo) {
+func downloadS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *types.FileInfo, outputFileInfo chan<- *types.FileInfo) {
 	numCPU := runtime.NumCPU()
 	wg := &sync.WaitGroup{}
 
@@ -46,7 +47,7 @@ func downloadS3Files(s3Config *config.S3Config, destinationDir string, inputFile
 }
 
 // handleListS3Object gathers the files in the S3
-func handleDownloadS3ObjectNew(wg *sync.WaitGroup, newConfig *config.S3Config, destinationDir string, inputFiles <-chan *FileInfo, outputFileInfo chan<- *FileInfo) {
+func handleDownloadS3ObjectNew(wg *sync.WaitGroup, newConfig *config.S3Config, destinationDir string, inputFiles <-chan *types.FileInfo, outputFileInfo chan<- *types.FileInfo) {
 	s3Client, err := minio.New(newConfig.DigitalOceanS3Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(newConfig.DigitalOceanS3AccessKeyID, newConfig.DigitalOceanS3SecretAccessKey, ""),
 		Secure: true,

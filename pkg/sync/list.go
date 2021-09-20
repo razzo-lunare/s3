@@ -1,10 +1,11 @@
-package s3
+package sync
 
 import (
 	"context"
 	"fmt"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -12,27 +13,27 @@ import (
 
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
 	"github.com/razzo-lunare/s3/pkg/config"
+	"github.com/razzo-lunare/s3/pkg/types"
 )
 
-func ListS3Files(s3Config *config.S3Config, s3Prefix string) <-chan *FileInfo {
+func ListS3Files(s3Config *config.S3Config, s3Prefix string) <-chan *types.FileInfo {
 	asciiterm.PrintfWarn("Listing all files in s3 under: %s", s3Prefix)
-	fileInfo := make(chan *FileInfo, 500)
+	fileInfo := make(chan *types.FileInfo, 500)
 
 	go listS3Files(s3Config, s3Prefix, fileInfo)
 
 	return fileInfo
 }
 
-func listS3Files(s3Config *config.S3Config, s3Prefix string, outputFileInfo chan<- *FileInfo) {
+func listS3Files(s3Config *config.S3Config, s3Prefix string, outputFileInfo chan<- *types.FileInfo) {
 
 	numCPU := runtime.NumCPU()
-	// wg := &sync.WaitGroup{}
 
 	s3Prefixes := make(chan string, 10001)
-	goRoutineStatus := NewGoRoutineStatus(numCPU / 2)
-	for w := 0; w < numCPU/2; w++ {
+	goRoutineStatus := NewGoRoutineStatus(numCPU/2, s3Prefixes)
+	for instanceID := 0; instanceID < numCPU/2; instanceID++ {
 		go handleListS3ObjectRecursive(
-			w,
+			instanceID,
 			goRoutineStatus,
 			s3Config,
 			s3Prefixes,
@@ -43,31 +44,21 @@ func listS3Files(s3Config *config.S3Config, s3Prefix string, outputFileInfo chan
 	// send the first prefix to the pool then the rest will search recursively
 	s3Prefixes <- s3Prefix
 
-	// TODO: This is slow... I need to figure out how to speed it up
-	// Verify no jobs come in for 5 seconds
-	totalIsAllDones := 0
-	for {
-		if goRoutineStatus.IsAllDone(s3Prefixes) {
-			totalIsAllDones++
-			// Take into account any false alarms
-			if totalIsAllDones == 2 {
-				break
-			}
-			time.Sleep(200 * time.Millisecond)
-		} else {
-			totalIsAllDones = 0
-		}
-	}
+	// TODO: This is slow... I need to figure out how to speed it up. This could
+	// be cpu intensive.
+	goRoutineStatus.Wait()
 
-	// Kill all list goroutines since there is no more data
+	// Close recursive list goroutines to clean up them
 	close(s3Prefixes)
+
+	// Notify the next step in the pipeline there are no more files listed
 	close(outputFileInfo)
 
 	asciiterm.PrintfInfo("Finished Listing all files in s3\n")
 }
 
 // handleListS3ObjectRecursive gathers the files in the S3
-func handleListS3ObjectRecursive(id int, goRoutineStatus *GoRoutineStatus, newConfig *config.S3Config, s3Prefixes chan string, outputFileInfo chan<- *FileInfo) {
+func handleListS3ObjectRecursive(id int, goRoutineStatus *GoRoutineStatus, newConfig *config.S3Config, s3Prefixes chan string, outputFileInfo chan<- *types.FileInfo) {
 
 	s3Client, err := minio.New(newConfig.DigitalOceanS3Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(newConfig.DigitalOceanS3AccessKeyID, newConfig.DigitalOceanS3SecretAccessKey, ""),
@@ -78,7 +69,6 @@ func handleListS3ObjectRecursive(id int, goRoutineStatus *GoRoutineStatus, newCo
 	}
 
 	for s3PrefixJob := range s3Prefixes {
-
 		goRoutineStatus.SetStateRunning(id)
 
 		opts := minio.ListObjectsOptions{
@@ -98,9 +88,9 @@ func handleListS3ObjectRecursive(id int, goRoutineStatus *GoRoutineStatus, newCo
 				continue
 			}
 
-			newFile := &FileInfo{
+			newFile := &types.FileInfo{
 				Name: object.Key,
-				md5:  object.ETag,
+				MD5:  object.ETag,
 			}
 
 			if object.Err != nil {
@@ -122,13 +112,32 @@ func isDir(objectPath string) bool {
 }
 
 type GoRoutineStatus struct {
-	state []int
+	channel chan string
+	state   []int
 }
 
-func NewGoRoutineStatus(numberOfGoRoutines int) *GoRoutineStatus {
+func NewGoRoutineStatus(numberOfGoRoutines int, s3Prefixes chan string) *GoRoutineStatus {
 	return &GoRoutineStatus{
-		state: make([]int, numberOfGoRoutines),
+		channel: s3Prefixes,
+		state:   make([]int, numberOfGoRoutines),
 	}
+}
+
+func (g *GoRoutineStatus) Wait() {
+	// Verify no jobs are still running
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		for {
+			if g.IsAllDone() {
+				wg.Done()
+				return
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}()
+
+	wg.Wait()
 }
 
 func (g *GoRoutineStatus) SetStateRunning(goRoutineID int) {
@@ -139,8 +148,9 @@ func (g *GoRoutineStatus) SetStateDone(goRoutineID int) {
 	g.state[goRoutineID] = 0
 }
 
-func (g *GoRoutineStatus) IsAllDone(thing chan string) bool {
-	if len(thing) != 0 {
+func (g *GoRoutineStatus) IsAllDone() bool {
+	// If there is an item in the channel we are
+	if len(g.channel) != 0 {
 		return false
 	}
 
@@ -149,5 +159,6 @@ func (g *GoRoutineStatus) IsAllDone(thing chan string) bool {
 			return false
 		}
 	}
+
 	return true
 }

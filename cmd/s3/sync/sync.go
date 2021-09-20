@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/razzo-lunare/s3/pkg/config"
-	"github.com/razzo-lunare/s3/pkg/s3"
+	"github.com/razzo-lunare/s3/pkg/sync"
 )
 
 var syncCmd = &cobra.Command{
@@ -18,11 +18,11 @@ var syncCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		s3Prefix, err := cmd.Flags().GetString("s3-prefix")
+		source, err := cmd.Flags().GetString("source")
 		if err != nil {
 			return err
 		}
-		destinationDir, err := cmd.Flags().GetString("destination-dir")
+		destination, err := cmd.Flags().GetString("destination")
 		if err != nil {
 			return err
 		}
@@ -32,15 +32,15 @@ var syncCmd = &cobra.Command{
 			return fmt.Errorf("Gathering config, %s", err)
 		}
 
-		return s3.Sync(newConfig, s3Prefix, destinationDir)
+		return sync.Run(newConfig, source, destination)
 	},
 }
 
 func NewCommand() *cobra.Command {
 	// Attach the cli indicator default flags
 	syncCmd.Flags().StringP("config", "", "/etc/s3/s3Config.yml", "S3 Config")
-	syncCmd.Flags().StringP("s3-prefix", "", "TIME_SERIES_INTRADAY_V2/1min/", "Prefix to filter the contents of the bucket")
-	syncCmd.Flags().StringP("destination-dir", "", "./", "Destination to download s3 contents too")
+	syncCmd.Flags().StringP("source", "", "s3://TIME_SERIES_INTRADAY_V2/1min/", "Prefix to filter the contents of the bucket")
+	syncCmd.Flags().StringP("destination", "", "./", "Destination to download s3 contents too")
 
 	return syncCmd
 }
