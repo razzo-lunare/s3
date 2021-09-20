@@ -2,11 +2,13 @@ package sync
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/spf13/cobra"
 
 	"github.com/razzo-lunare/s3/pkg/config"
 	"github.com/razzo-lunare/s3/pkg/sync"
+	"github.com/razzo-lunare/s3/pkg/sync/betav1"
 	"github.com/razzo-lunare/s3/pkg/sync/filesystem"
 	"github.com/razzo-lunare/s3/pkg/sync/s3"
 )
@@ -36,20 +38,35 @@ var syncCmd = &cobra.Command{
 			return fmt.Errorf("Gathering config, %s", err)
 		}
 
-		destination := &s3.S3{
-			S3Prefix:       sourceStr,
-			S3Config:       newConfig,
-			DestinationDir: destinationStr,
-		}
+		destination := GetSyncObject("s3", sourceStr, destinationStr, newConfig)
 
-		source := &filesystem.FileSystem{
-			SourceDir:      sourceStr,
-			S3Config:       newConfig,
-			DestinationDir: destinationStr,
-		}
+		source := GetSyncObject("filesystem", sourceStr, destinationStr, newConfig)
 
 		return sync.Run(newConfig, source, destination)
 	},
+}
+
+func GetSyncObject(objType string, objectSource string, objectDestination string, config *config.S3Config) betav1.SyncObject {
+	// TODO infer the objType from the source and destination string
+
+	switch objType {
+	case "s3":
+		return &s3.S3{
+			S3Prefix:       objectSource,
+			S3Config:       config,
+			DestinationDir: objectDestination,
+		}
+	case "filesystem":
+		return &filesystem.FileSystem{
+			SourceDir:      objectSource,
+			S3Config:       config,
+			DestinationDir: objectDestination,
+		}
+	default:
+		log.Fatalf("Invalid Sync Object Type %s", objType)
+
+		panic("This code is never hit but the compiler doesn't know that :p")
+	}
 }
 
 func NewCommand() *cobra.Command {
