@@ -1,4 +1,4 @@
-package sync
+package filesystem
 
 import (
 	"crypto/md5"
@@ -13,20 +13,19 @@ import (
 
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
 	"github.com/razzo-lunare/s3/pkg/config"
-	"github.com/razzo-lunare/s3/pkg/types"
+	"github.com/razzo-lunare/s3/pkg/sync/betav1"
 )
 
-// VerifyFiles if the file doesn't exist on the filesystem or the md5 sum doesn't match
-// make that the file needs to be downloaded
-func VerifyS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *types.FileInfo) <-chan *types.FileInfo {
-	outputFileInfo := make(chan *types.FileInfo, 500)
+// Verify checks to see if the FileInfo exists
+func (f *FileSystem) Verify(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.FileInfo, error) {
+	outputFileInfo := make(chan *betav1.FileInfo, 500)
 
-	go verifyS3Files(s3Config, destinationDir, inputFiles, outputFileInfo)
+	go verifyS3Files(f.S3Config, f.DestinationDir, inputFiles, outputFileInfo)
 
-	return outputFileInfo
+	return outputFileInfo, nil
 }
 
-func verifyS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *types.FileInfo, outputFileInfo chan<- *types.FileInfo) {
+func verifyS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 	numCPU := runtime.NumCPU()
 	wg := &sync.WaitGroup{}
 
@@ -48,7 +47,7 @@ func verifyS3Files(s3Config *config.S3Config, destinationDir string, inputFiles 
 }
 
 // handleListS3Object gathers the files in the S3
-func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.S3Config, destinationDir string, inputFiles <-chan *types.FileInfo, outputFileInfo chan<- *types.FileInfo) {
+func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.S3Config, destinationDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 
 	for fileJob := range inputFiles {
 
@@ -75,7 +74,6 @@ func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.S3Config, destin
 			// download the file from s3
 			outputFileInfo <- fileJob
 		}
-
 	}
 
 	// Notify parent proccess that all items have been verified

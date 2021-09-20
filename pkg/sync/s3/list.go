@@ -1,4 +1,4 @@
-package sync
+package s3
 
 import (
 	"context"
@@ -13,19 +13,19 @@ import (
 
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
 	"github.com/razzo-lunare/s3/pkg/config"
-	"github.com/razzo-lunare/s3/pkg/types"
+	"github.com/razzo-lunare/s3/pkg/sync/betav1"
 )
 
-func ListS3Files(s3Config *config.S3Config, s3Prefix string) <-chan *types.FileInfo {
-	asciiterm.PrintfWarn("Listing all files in s3 under: %s", s3Prefix)
-	fileInfo := make(chan *types.FileInfo, 500)
+func (s *S3) List() (<-chan *betav1.FileInfo, error) {
+	asciiterm.PrintfWarn("Listing all files in s3 under: %s", s.S3Prefix)
+	fileInfo := make(chan *betav1.FileInfo, 500)
 
-	go listS3Files(s3Config, s3Prefix, fileInfo)
+	go listS3Files(s.S3Config, s.S3Prefix, fileInfo)
 
-	return fileInfo
+	return fileInfo, nil
 }
 
-func listS3Files(s3Config *config.S3Config, s3Prefix string, outputFileInfo chan<- *types.FileInfo) {
+func listS3Files(s3Config *config.S3Config, s3Prefix string, outputFileInfo chan<- *betav1.FileInfo) {
 
 	numCPU := runtime.NumCPU()
 
@@ -58,7 +58,7 @@ func listS3Files(s3Config *config.S3Config, s3Prefix string, outputFileInfo chan
 }
 
 // handleListS3ObjectRecursive gathers the files in the S3
-func handleListS3ObjectRecursive(id int, goRoutineStatus *GoRoutineStatus, newConfig *config.S3Config, s3Prefixes chan string, outputFileInfo chan<- *types.FileInfo) {
+func handleListS3ObjectRecursive(id int, goRoutineStatus *GoRoutineStatus, newConfig *config.S3Config, s3Prefixes chan string, outputFileInfo chan<- *betav1.FileInfo) {
 
 	s3Client, err := minio.New(newConfig.DigitalOceanS3Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(newConfig.DigitalOceanS3AccessKeyID, newConfig.DigitalOceanS3SecretAccessKey, ""),
@@ -88,7 +88,7 @@ func handleListS3ObjectRecursive(id int, goRoutineStatus *GoRoutineStatus, newCo
 				continue
 			}
 
-			newFile := &types.FileInfo{
+			newFile := &betav1.FileInfo{
 				Name: object.Key,
 				MD5:  object.ETag,
 			}

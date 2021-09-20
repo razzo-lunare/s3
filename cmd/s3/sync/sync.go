@@ -7,6 +7,8 @@ import (
 
 	"github.com/razzo-lunare/s3/pkg/config"
 	"github.com/razzo-lunare/s3/pkg/sync"
+	"github.com/razzo-lunare/s3/pkg/sync/filesystem"
+	"github.com/razzo-lunare/s3/pkg/sync/s3"
 )
 
 var syncCmd = &cobra.Command{
@@ -18,11 +20,13 @@ var syncCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		source, err := cmd.Flags().GetString("source")
+
+		sourceStr, err := cmd.Flags().GetString("source")
 		if err != nil {
 			return err
 		}
-		destination, err := cmd.Flags().GetString("destination")
+
+		destinationStr, err := cmd.Flags().GetString("destination")
 		if err != nil {
 			return err
 		}
@@ -30,6 +34,18 @@ var syncCmd = &cobra.Command{
 		newConfig, err := config.NewConfig(configPath)
 		if err != nil {
 			return fmt.Errorf("Gathering config, %s", err)
+		}
+
+		destination := &s3.S3{
+			S3Prefix:       sourceStr,
+			S3Config:       newConfig,
+			DestinationDir: destinationStr,
+		}
+
+		source := &filesystem.FileSystem{
+			SourceDir:      sourceStr,
+			S3Config:       newConfig,
+			DestinationDir: destinationStr,
 		}
 
 		return sync.Run(newConfig, source, destination)

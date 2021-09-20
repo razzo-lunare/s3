@@ -1,4 +1,4 @@
-package sync
+package filesystem
 
 import (
 	"context"
@@ -13,20 +13,19 @@ import (
 
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
 	"github.com/razzo-lunare/s3/pkg/config"
-	"github.com/razzo-lunare/s3/pkg/types"
+	"github.com/razzo-lunare/s3/pkg/sync/betav1"
 )
 
-// VerifyFiles if the file doesn't exist on the filesystem or the md5 sum doesn't match
-// make that the file needs to be downloaded
-func DownloadS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *types.FileInfo) <-chan *types.FileInfo {
-	outputFileInfo := make(chan *types.FileInfo, 500)
+// Create accepts a channel of files to create
+func (f *FileSystem) Create(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.FileInfo, error) {
+	outputFileInfo := make(chan *betav1.FileInfo, 500)
 
-	go downloadS3Files(s3Config, destinationDir, inputFiles, outputFileInfo)
+	go downloadS3Files(f.S3Config, f.DestinationDir, inputFiles, outputFileInfo)
 
-	return outputFileInfo
+	return outputFileInfo, nil
 }
 
-func downloadS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *types.FileInfo, outputFileInfo chan<- *types.FileInfo) {
+func downloadS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 	numCPU := runtime.NumCPU()
 	wg := &sync.WaitGroup{}
 
@@ -47,7 +46,7 @@ func downloadS3Files(s3Config *config.S3Config, destinationDir string, inputFile
 }
 
 // handleListS3Object gathers the files in the S3
-func handleDownloadS3ObjectNew(wg *sync.WaitGroup, newConfig *config.S3Config, destinationDir string, inputFiles <-chan *types.FileInfo, outputFileInfo chan<- *types.FileInfo) {
+func handleDownloadS3ObjectNew(wg *sync.WaitGroup, newConfig *config.S3Config, destinationDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 	s3Client, err := minio.New(newConfig.DigitalOceanS3Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(newConfig.DigitalOceanS3AccessKeyID, newConfig.DigitalOceanS3SecretAccessKey, ""),
 		Secure: true,
