@@ -3,29 +3,27 @@ package filesystem
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"runtime"
 	"sync"
 
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
-	"github.com/razzo-lunare/s3/pkg/config"
 	"github.com/razzo-lunare/s3/pkg/sync/betav1"
+	"k8s.io/klog/v2"
 )
 
 // Verify checks to see if the FileInfo exists
 func (f *FileSystem) Verify(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.FileInfo, error) {
 	outputFileInfo := make(chan *betav1.FileInfo, 500)
 
-	go verifyS3Files(f.S3Config, f.DestinationDir, inputFiles, outputFileInfo)
+	go verifyS3Files(f.SyncDir, inputFiles, outputFileInfo)
 
 	return outputFileInfo, nil
 }
 
-func verifyS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
+func verifyS3Files(syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 	numCPU := runtime.NumCPU()
 	wg := &sync.WaitGroup{}
 
@@ -33,8 +31,7 @@ func verifyS3Files(s3Config *config.S3Config, destinationDir string, inputFiles 
 		wg.Add(1)
 		go handleVerifyS3Object(
 			wg,
-			s3Config,
-			destinationDir,
+			syncDir,
 			inputFiles,
 			outputFileInfo,
 		)
@@ -47,14 +44,15 @@ func verifyS3Files(s3Config *config.S3Config, destinationDir string, inputFiles 
 }
 
 // handleListS3Object gathers the files in the S3
-func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.S3Config, destinationDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
+func handleVerifyS3Object(wg *sync.WaitGroup, syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 
 	for fileJob := range inputFiles {
+		klog.V(2).Infof("Create S3: %s", fileJob.Name)
 
-		stockFile := destinationDir + fileJob.Name
+		stockFile := syncDir + fileJob.Name
 
 		// S3 object doesn't exist on filesystem
-		if _, err := os.Stat(stockFile); errors.Is(err, fs.ErrNotExist) {
+		if _, err := os.Stat(stockFile); os.IsNotExist(err) {
 			// download the file from s3
 			outputFileInfo <- fileJob
 
@@ -84,20 +82,23 @@ func hashFileMd5(filePath string) (string, error) {
 	var returnMD5String string
 	file, err := os.Open(filePath)
 	if err != nil {
-		if err == os.ErrNotExist {
+		if os.IsNotExist(err) {
 			return "FILE_NOT_FOUND THIS WILL TRIGGER A NEW FILE TO DOWNLOAD", nil
 		}
 
 		return returnMD5String, err
 	}
 
-	defer file.Close()
 	hash := md5.New()
 	if _, err := io.Copy(hash, file); err != nil {
-		return returnMD5String, err
+		file.Close()
+		return "", err
 	}
+
+	file.Close()
+
 	hashInBytes := hash.Sum(nil)[:16]
 	returnMD5String = hex.EncodeToString(hashInBytes)
-	return returnMD5String, nil
 
+	return returnMD5String, nil
 }

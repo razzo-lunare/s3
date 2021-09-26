@@ -9,13 +9,26 @@ import (
 	"k8s.io/klog/v2"
 )
 
+type S3 struct {
+	// TODO fix these names
+	DigitalOceanS3StockDataBucketName string `yaml:"bucket-name"`
+	DigitalOceanS3Endpoint            string `yaml:"endpoint"`
+	DigitalOceanS3AccessKeyID         string `yaml:"access-key-id"`
+	DigitalOceanS3SecretAccessKey     string `yaml:"secret-access-key"`
+}
+
 // S3Config holds the data read from the s3.yml
 type S3Config struct {
-	DigitalOceanS3StockDataBucketName string `yaml:"digital_ocean_s3_stock_data_bucket_name"`
-	DigitalOceanS3Endpoint            string `yaml:"digital_ocean_s3_endpoint"`
-	DigitalOceanS3AccessKeyID         string `yaml:"digital_ocean_s3_access_key_id"`
-	DigitalOceanS3SecretAccessKey     string `yaml:"digital_ocean_s3_secret_access_key"`
-	DigitalOceanS3CreateBucket        bool   `yaml:"digital_ocean_s3_create_bucket"`
+	S3 []*S3 `yaml:"s3"`
+}
+
+func (s *S3Config) GetBucketCreds(bucketName string) (*S3, error) {
+	for _, s3 := range s.S3 {
+		if s3.DigitalOceanS3StockDataBucketName == bucketName {
+			return s3, nil
+		}
+	}
+	return nil, fmt.Errorf("No bucket creds found in the config for bucket: %s", bucketName)
 }
 
 // NewConfig returns a new config
@@ -32,12 +45,13 @@ func NewConfig(pathToConfig string) (*S3Config, error) {
 	}
 
 	klog.V(10).Infof("Config File Content: %s", string(byteValue))
-	klog.V(10).Infof("Config Object: %+v", s3Config)
 
 	err = yaml.Unmarshal(byteValue, s3Config)
 	if err != nil {
-		return nil, fmt.Errorf("Unmarshalling config: %s", err.Error())
+		return nil, fmt.Errorf("Un-marshalling config: %s", err.Error())
 	}
+
+	klog.V(10).Infof("Config Object: %+v", s3Config)
 
 	return s3Config, nil
 }

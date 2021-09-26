@@ -8,7 +8,9 @@ import (
 )
 
 func (f *FileSystem) List() (<-chan *betav1.FileInfo, error) {
-	err := filepath.WalkDir(f.SourceDir, walk)
+	// TODO implement this
+	panic("not implemented")
+	err := filepath.WalkDir(f.SyncDir, walk)
 	if err != nil {
 		return nil, err
 	}

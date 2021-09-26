@@ -3,6 +3,7 @@ package sync
 import (
 	"fmt"
 	"log"
+	"regexp"
 
 	"github.com/spf13/cobra"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/razzo-lunare/s3/pkg/sync/betav1"
 	"github.com/razzo-lunare/s3/pkg/sync/filesystem"
 	"github.com/razzo-lunare/s3/pkg/sync/s3"
+	"github.com/razzo-lunare/s3/pkg/utils/str"
 )
 
 var syncCmd = &cobra.Command{
@@ -38,32 +40,47 @@ var syncCmd = &cobra.Command{
 			return fmt.Errorf("Gathering config, %s", err)
 		}
 
-		destination := GetSyncObject("s3", sourceStr, destinationStr, newConfig)
-
-		source := GetSyncObject("filesystem", sourceStr, destinationStr, newConfig)
+		source := GetSyncObject(sourceStr, newConfig)
+		destination := GetSyncObject(destinationStr, newConfig)
 
 		return sync.Run(newConfig, source, destination)
 	},
 }
 
-func GetSyncObject(objType string, objectSource string, objectDestination string, config *config.S3Config) betav1.SyncObject {
-	// TODO infer the objType from the source and destination string
+func GetSyncObject(objectOrFileInput string, config *config.S3Config) betav1.SyncObject {
 
-	switch objType {
+	// "s3://" or "filesystem://"
+	rx := regexp.MustCompile(`(?P<InputType>^[A-Za-z1-9]+)://`)
+	regexGroups := str.RegexGroups(rx, objectOrFileInput)
+
+	switch regexGroups["InputType"] {
 	case "s3":
+		rx := regexp.MustCompile(`s3://(?P<BucketName>[A-Za-z1-9-]+)/(?P<S3Path>.*)`)
+		regexGroups := str.RegexGroups(rx, objectOrFileInput)
+
+		if regexGroups["BucketName"] == "" {
+			log.Fatalf("No bucket name found in s3 argument\n")
+		}
+		if regexGroups["S3Path"] == "" {
+			log.Fatalf("No s3 path found in s3 argument\n")
+		}
+		bucketConfig, err := config.GetBucketCreds(regexGroups["BucketName"])
+		if err != nil {
+			return nil
+		}
+
 		return &s3.S3{
-			S3Prefix:       objectSource,
-			S3Config:       config,
-			DestinationDir: objectDestination,
+			S3Path: regexGroups["S3Path"],
+			Config: bucketConfig,
 		}
 	case "filesystem":
+		rx := regexp.MustCompile(`filesystem://(?P<FileSystemPath>.*)`)
+		regexGroups := str.RegexGroups(rx, objectOrFileInput)
 		return &filesystem.FileSystem{
-			SourceDir:      objectSource,
-			S3Config:       config,
-			DestinationDir: objectDestination,
+			SyncDir: regexGroups["FileSystemPath"],
 		}
 	default:
-		log.Fatalf("Invalid Sync Object Type %s", objType)
+		log.Fatalf("Invalid Sync Input Type %s", objectOrFileInput)
 
 		panic("This code is never hit but the compiler doesn't know that :p")
 	}

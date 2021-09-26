@@ -1,18 +1,15 @@
 package filesystem
 
 import (
-	"context"
-	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
 
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
+	"k8s.io/klog/v2"
 
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
-	"github.com/razzo-lunare/s3/pkg/config"
 	"github.com/razzo-lunare/s3/pkg/sync/betav1"
 )
 
@@ -20,12 +17,12 @@ import (
 func (f *FileSystem) Create(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.FileInfo, error) {
 	outputFileInfo := make(chan *betav1.FileInfo, 500)
 
-	go downloadS3Files(f.S3Config, f.DestinationDir, inputFiles, outputFileInfo)
+	go downloadS3Files(f.SyncDir, inputFiles, outputFileInfo)
 
 	return outputFileInfo, nil
 }
 
-func downloadS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
+func downloadS3Files(syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 	numCPU := runtime.NumCPU()
 	wg := &sync.WaitGroup{}
 
@@ -33,8 +30,7 @@ func downloadS3Files(s3Config *config.S3Config, destinationDir string, inputFile
 		wg.Add(1)
 		go handleDownloadS3ObjectNew(
 			wg,
-			s3Config,
-			destinationDir,
+			syncDir,
 			inputFiles,
 			outputFileInfo,
 		)
@@ -45,43 +41,53 @@ func downloadS3Files(s3Config *config.S3Config, destinationDir string, inputFile
 	asciiterm.PrintfInfo("downloaded all s3 objects\n")
 }
 
-// handleListS3Object gathers the files in the S3
-func handleDownloadS3ObjectNew(wg *sync.WaitGroup, newConfig *config.S3Config, destinationDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
-	s3Client, err := minio.New(newConfig.DigitalOceanS3Endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(newConfig.DigitalOceanS3AccessKeyID, newConfig.DigitalOceanS3SecretAccessKey, ""),
-		Secure: true,
-	})
+var (
+	dirCache     = map[string]interface{}{}
+	dirCacheLock = sync.Mutex{}
+)
 
-	if err != nil {
-		fmt.Println(err)
-	}
+// handleListS3Object gathers the files in the S3
+func handleDownloadS3ObjectNew(wg *sync.WaitGroup, syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 
 	for fileJob := range inputFiles {
+		klog.V(2).Infof("Create S3: %s", fileJob.Name)
 		// TODO add ticker destination as a CLI flag!!
-		tickerDestinationFile := destinationDir + fileJob.Name
+		tickerDestinationFile := syncDir + fileJob.Name
 
 		tickerDir := filepath.Dir(tickerDestinationFile)
-		file, err := os.Open(tickerDir)
+		// TODO: this is un-efficient but we need to make sure the directories exist...
+		// maybe we should cache the directories we have checked
+		// if _, ok := dirCache[tickerDir]; !ok {
+		_, err := os.Stat(tickerDir)
 		if err != nil {
-			if err == os.ErrNotExist {
-				err = os.MkdirAll(tickerDir, os.ModeAppend)
+			if os.IsNotExist(err) {
+				err = os.MkdirAll(tickerDir, 0700)
 				if err != nil {
-					fmt.Println("error making dir, ", err)
+					klog.Error("error making dir, ", err)
 
 					continue
 				}
 			}
 		}
-		file.Close()
+		// dirCacheLock.Lock()
+		// dirCache[tickerDir] = nil
+		// }
 
-		opts := minio.GetObjectOptions{}
-
-		err = s3Client.FGetObject(context.Background(), newConfig.DigitalOceanS3StockDataBucketName, fileJob.Name, tickerDestinationFile, opts)
+		localFile, err := os.Create(tickerDestinationFile)
 		if err != nil {
-			fmt.Println("error making dir, ", err)
-
+			klog.Error(err)
 			continue
 		}
+		if fileJob.Content != nil {
+			if _, err = io.Copy(localFile, fileJob.Content); err != nil {
+				klog.Error(err)
+				continue
+			}
+		} else {
+			// klog.Error("File Content to download was nil: ", fileJob.Name)
+		}
+
+		localFile.Close()
 
 		outputFileInfo <- fileJob
 	}

@@ -1,6 +1,6 @@
-# Fast S3
+# S3
 
-The fastest S3 sync North of Minnesota.
+Dead simple and fast S3 sync
 
 ## Examples
 
@@ -8,6 +8,9 @@ The fastest S3 sync North of Minnesota.
 ```
 ./_bin/s3.darwin.amd64 sync --config ../fortuna/config/fortuna.yml
 ```
+
+
+TODO clean up the readme
 
 ## Performance Report
 ```
@@ -34,11 +37,12 @@ time /Users/tomcocozzello/go/src/github.com/larrabee/s3sync/s3sync \
         _bin/fortuna-stock-data/TIME_SERIES_INTRADAY_V2/1min/
 
 # New test
+FORTUNA_CONFIG=configs/s3.yaml
 time /Users/tomcocozzello/go/src/github.com/larrabee/s3sync/s3sync \
     --sk $(yq eval '.digital_ocean_s3_access_key_id' ${FORTUNA_CONFIG}) \
     --ss $(yq eval '.digital_ocean_s3_secret_access_key' ${FORTUNA_CONFIG}) \
     --se sfo2.digitaloceanspaces.com \
-        s3://fortuna-stock-data-new/TIME_SERIES_INTRADAY_V2/1min/2021-02-.* \
+        s3://fortuna-stock-data-new/TIME_SERIES_INTRADAY_V2/1min/2021-02-10 \
         _bin/fortuna-stock-data/TIME_SERIES_INTRADAY_V2/1min/
 ```
 ###  529 items

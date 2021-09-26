@@ -4,8 +4,8 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
-	"fmt"
 	"io"
+	"log"
 	"os"
 	"runtime"
 	"sync"
@@ -22,12 +22,12 @@ import (
 func (s *S3) Verify(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.FileInfo, error) {
 	outputFileInfo := make(chan *betav1.FileInfo, 500)
 
-	go verifyS3Files(s.S3Config, s.DestinationDir, inputFiles, outputFileInfo)
+	go verifyS3Files(s.Config, inputFiles, outputFileInfo)
 
 	return outputFileInfo, nil
 }
 
-func verifyS3Files(s3Config *config.S3Config, destinationDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
+func verifyS3Files(s3Config *config.S3, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 	numCPU := runtime.NumCPU()
 	wg := &sync.WaitGroup{}
 
@@ -36,7 +36,6 @@ func verifyS3Files(s3Config *config.S3Config, destinationDir string, inputFiles 
 		go handleVerifyS3Object(
 			wg,
 			s3Config,
-			destinationDir,
 			inputFiles,
 			outputFileInfo,
 		)
@@ -49,16 +48,17 @@ func verifyS3Files(s3Config *config.S3Config, destinationDir string, inputFiles 
 }
 
 // handleVerifyS3Object gathers the files in the S3
-func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.S3Config, destinationDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
+func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.S3, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 	s3Client, err := minio.New(newConfig.DigitalOceanS3Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(newConfig.DigitalOceanS3AccessKeyID, newConfig.DigitalOceanS3SecretAccessKey, ""),
 		Secure: true,
 	})
 	if err != nil {
-		fmt.Println(err)
+		log.Fatal("setting up s3 client: ", err)
 	}
 
 	for fileJob := range inputFiles {
+		klog.V(2).Infof("List S3: %s", fileJob.Name)
 		opts := minio.StatObjectOptions{}
 
 		object, err := s3Client.StatObject(context.Background(), newConfig.DigitalOceanS3StockDataBucketName, fileJob.Name, opts)
@@ -83,10 +83,11 @@ func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.S3Config, destin
 }
 
 func hashFileMd5(filePath string) (string, error) {
+
 	var returnMD5String string
 	file, err := os.Open(filePath)
 	if err != nil {
-		if err == os.ErrNotExist {
+		if os.IsNotExist(err) {
 			return "FILE_NOT_FOUND THIS WILL TRIGGER A NEW FILE TO DOWNLOAD", nil
 		}
 

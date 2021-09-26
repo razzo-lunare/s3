@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"k8s.io/klog/v2"
 
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
 	"github.com/razzo-lunare/s3/pkg/config"
@@ -17,15 +16,15 @@ import (
 )
 
 func (s *S3) List() (<-chan *betav1.FileInfo, error) {
-	asciiterm.PrintfWarn("Listing all files in s3 under: %s", s.S3Prefix)
+	asciiterm.PrintfWarn("Listing all objects in s3://%s", s.S3Path)
 	fileInfo := make(chan *betav1.FileInfo, 500)
 
-	go listS3Files(s.S3Config, s.S3Prefix, fileInfo)
+	go listS3Files(s.Config, s.S3Path, fileInfo)
 
 	return fileInfo, nil
 }
 
-func listS3Files(s3Config *config.S3Config, s3Prefix string, outputFileInfo chan<- *betav1.FileInfo) {
+func listS3Files(s3Config *config.S3, s3Prefix string, outputFileInfo chan<- *betav1.FileInfo) {
 
 	numCPU := runtime.NumCPU()
 
@@ -58,7 +57,7 @@ func listS3Files(s3Config *config.S3Config, s3Prefix string, outputFileInfo chan
 }
 
 // handleListS3ObjectRecursive gathers the files in the S3
-func handleListS3ObjectRecursive(id int, goRoutineStatus *GoRoutineStatus, newConfig *config.S3Config, s3Prefixes chan string, outputFileInfo chan<- *betav1.FileInfo) {
+func handleListS3ObjectRecursive(id int, goRoutineStatus *GoRoutineStatus, newConfig *config.S3, s3Prefixes chan string, outputFileInfo chan<- *betav1.FileInfo) {
 
 	s3Client, err := minio.New(newConfig.DigitalOceanS3Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(newConfig.DigitalOceanS3AccessKeyID, newConfig.DigitalOceanS3SecretAccessKey, ""),
@@ -69,6 +68,8 @@ func handleListS3ObjectRecursive(id int, goRoutineStatus *GoRoutineStatus, newCo
 	}
 
 	for s3PrefixJob := range s3Prefixes {
+		klog.V(2).Infof("List S3: %s", s3PrefixJob)
+
 		goRoutineStatus.SetStateRunning(id)
 
 		opts := minio.ListObjectsOptions{
@@ -104,61 +105,8 @@ func handleListS3ObjectRecursive(id int, goRoutineStatus *GoRoutineStatus, newCo
 		goRoutineStatus.SetStateDone(id)
 
 	}
-
 }
 
 func isDir(objectPath string) bool {
 	return strings.HasSuffix(objectPath, "/")
-}
-
-type GoRoutineStatus struct {
-	channel chan string
-	state   []int
-}
-
-func NewGoRoutineStatus(numberOfGoRoutines int, s3Prefixes chan string) *GoRoutineStatus {
-	return &GoRoutineStatus{
-		channel: s3Prefixes,
-		state:   make([]int, numberOfGoRoutines),
-	}
-}
-
-func (g *GoRoutineStatus) Wait() {
-	// Verify no jobs are still running
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		for {
-			if g.IsAllDone() {
-				wg.Done()
-				return
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-	}()
-
-	wg.Wait()
-}
-
-func (g *GoRoutineStatus) SetStateRunning(goRoutineID int) {
-	g.state[goRoutineID] = 1
-}
-
-func (g *GoRoutineStatus) SetStateDone(goRoutineID int) {
-	g.state[goRoutineID] = 0
-}
-
-func (g *GoRoutineStatus) IsAllDone() bool {
-	// If there is an item in the channel we are
-	if len(g.channel) != 0 {
-		return false
-	}
-
-	for _, state := range g.state {
-		if state == 1 {
-			return false
-		}
-	}
-
-	return true
 }
