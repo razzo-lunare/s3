@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -15,7 +16,7 @@ import (
 
 // Create accepts a channel of files to create
 func (f *FileSystem) Create(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.FileInfo, error) {
-	outputFileInfo := make(chan *betav1.FileInfo, 500)
+	outputFileInfo := make(chan *betav1.FileInfo, 10001)
 
 	go downloadS3Files(f.SyncDir, inputFiles, outputFileInfo)
 
@@ -41,37 +42,21 @@ func downloadS3Files(syncDir string, inputFiles <-chan *betav1.FileInfo, outputF
 	asciiterm.PrintfInfo("downloaded all s3 objects\n")
 }
 
-var (
-	dirCache     = map[string]interface{}{}
-	dirCacheLock = sync.Mutex{}
-)
-
 // handleListS3Object gathers the files in the S3
 func handleDownloadS3ObjectNew(wg *sync.WaitGroup, syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 
 	for fileJob := range inputFiles {
 		klog.V(2).Infof("Create S3: %s", fileJob.Name)
-		// TODO add ticker destination as a CLI flag!!
+
 		tickerDestinationFile := syncDir + fileJob.Name
 
 		tickerDir := filepath.Dir(tickerDestinationFile)
-		// TODO: this is un-efficient but we need to make sure the directories exist...
-		// maybe we should cache the directories we have checked
-		// if _, ok := dirCache[tickerDir]; !ok {
-		_, err := os.Stat(tickerDir)
-		if err != nil {
-			if os.IsNotExist(err) {
-				err = os.MkdirAll(tickerDir, 0700)
-				if err != nil {
-					klog.Error("error making dir, ", err)
 
-					continue
-				}
-			}
+		err := createDir(tickerDir)
+		if err != nil {
+			klog.Error(err)
+			continue
 		}
-		// dirCacheLock.Lock()
-		// dirCache[tickerDir] = nil
-		// }
 
 		localFile, err := os.Create(tickerDestinationFile)
 		if err != nil {
@@ -93,4 +78,28 @@ func handleDownloadS3ObjectNew(wg *sync.WaitGroup, syncDir string, inputFiles <-
 	}
 
 	wg.Done()
+}
+
+var (
+	dirCache = map[string]interface{}{}
+)
+
+func createDir(pathToCreate string) error {
+	// cache the directories we have checked so we don't have to stat them multiple times
+	// don't lock the cache map because we don't care about the state of the data.
+	if _, ok := dirCache[pathToCreate]; !ok {
+
+		// Create the directory if it doesn't exist locally
+		_, err := os.Stat(pathToCreate)
+		if err != nil && os.IsNotExist(err) {
+			err = os.MkdirAll(pathToCreate, 0700)
+			if err != nil {
+				return fmt.Errorf("error making dir, %w", err)
+			}
+		}
+
+		dirCache[pathToCreate] = nil
+	}
+
+	return nil
 }

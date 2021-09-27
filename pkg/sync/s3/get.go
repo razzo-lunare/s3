@@ -16,7 +16,7 @@ import (
 
 // Verify checks to see if the FileInfo exists
 func (s *S3) Get(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.FileInfo, error) {
-	outputFileInfo := make(chan *betav1.FileInfo, 500)
+	outputFileInfo := make(chan *betav1.FileInfo, 10001)
 
 	go getS3Files(s.Config, inputFiles, outputFileInfo)
 
@@ -46,8 +46,8 @@ func getS3Files(s3Config *config.S3, inputFiles <-chan *betav1.FileInfo, outputF
 // handleListS3ObjectRecursive gathers the files in the S3
 func handleGetS3Object(wg *sync.WaitGroup, newConfig *config.S3, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 
-	s3Client, err := minio.New(newConfig.DigitalOceanS3Endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(newConfig.DigitalOceanS3AccessKeyID, newConfig.DigitalOceanS3SecretAccessKey, ""),
+	s3Client, err := minio.New(newConfig.Endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(newConfig.AccessKeyID, newConfig.AccessKey, ""),
 		Secure: true,
 	})
 	if err != nil {
@@ -60,7 +60,7 @@ func handleGetS3Object(wg *sync.WaitGroup, newConfig *config.S3, inputFiles <-ch
 
 		s3Object, err := s3Client.GetObject(
 			context.Background(),
-			newConfig.DigitalOceanS3StockDataBucketName,
+			newConfig.BucketName,
 			fileJob.Name,
 			minio.GetObjectOptions{},
 		)

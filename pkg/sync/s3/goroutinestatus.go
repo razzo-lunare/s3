@@ -1,7 +1,6 @@
 package s3
 
 import (
-	"sync"
 	"time"
 )
 
@@ -17,26 +16,20 @@ func NewGoRoutineStatus(numberOfGoRoutines int, s3Prefixes chan string) *GoRouti
 	}
 }
 
+// TODO: This could be cpu intensive.
 func (g *GoRoutineStatus) Wait() {
 	// Verify no jobs are still running
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		for {
-			if g.IsAllDone() {
-				wg.Done()
-				return
-			}
-			// Vary the sleep time depending how how close we are to finishing
-			if len(g.channel) > 50 {
-				time.Sleep(500 * time.Millisecond)
-			} else {
-				time.Sleep(100 * time.Millisecond)
-			}
+	for {
+		if g.IsAllDone() {
+			return
 		}
-	}()
-
-	wg.Wait()
+		// Vary the sleep time depending how how close we are to finishing
+		if len(g.channel) > 50 {
+			time.Sleep(500 * time.Millisecond)
+		} else {
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
 }
 
 func (g *GoRoutineStatus) SetStateRunning(goRoutineID int) {

@@ -43,8 +43,6 @@ func listS3Files(s3Config *config.S3, s3Prefix string, outputFileInfo chan<- *be
 	// send the first prefix to the pool then the rest will search recursively
 	s3Prefixes <- s3Prefix
 
-	// TODO: This is slow... I need to figure out how to speed it up. This could
-	// be cpu intensive.
 	goRoutineStatus.Wait()
 
 	// Close recursive list goroutines to clean up them
@@ -59,8 +57,8 @@ func listS3Files(s3Config *config.S3, s3Prefix string, outputFileInfo chan<- *be
 // handleListS3ObjectRecursive gathers the files in the S3
 func handleListS3ObjectRecursive(id int, goRoutineStatus *GoRoutineStatus, newConfig *config.S3, s3Prefixes chan string, outputFileInfo chan<- *betav1.FileInfo) {
 
-	s3Client, err := minio.New(newConfig.DigitalOceanS3Endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(newConfig.DigitalOceanS3AccessKeyID, newConfig.DigitalOceanS3SecretAccessKey, ""),
+	s3Client, err := minio.New(newConfig.Endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(newConfig.AccessKeyID, newConfig.AccessKey, ""),
 		Secure: true,
 	})
 	if err != nil {
@@ -80,7 +78,7 @@ func handleListS3ObjectRecursive(id int, goRoutineStatus *GoRoutineStatus, newCo
 			MaxKeys:      5000,
 		}
 
-		for object := range s3Client.ListObjects(context.Background(), newConfig.DigitalOceanS3StockDataBucketName, opts) {
+		for object := range s3Client.ListObjects(context.Background(), newConfig.BucketName, opts) {
 			if isDir(object.Key) {
 
 				newPrefix := object.Key

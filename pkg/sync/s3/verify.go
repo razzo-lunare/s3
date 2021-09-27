@@ -20,7 +20,7 @@ import (
 
 // Verify checks to see if the FileInfo exists
 func (s *S3) Verify(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.FileInfo, error) {
-	outputFileInfo := make(chan *betav1.FileInfo, 500)
+	outputFileInfo := make(chan *betav1.FileInfo, 10001)
 
 	go verifyS3Files(s.Config, inputFiles, outputFileInfo)
 
@@ -49,8 +49,8 @@ func verifyS3Files(s3Config *config.S3, inputFiles <-chan *betav1.FileInfo, outp
 
 // handleVerifyS3Object gathers the files in the S3
 func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.S3, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
-	s3Client, err := minio.New(newConfig.DigitalOceanS3Endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(newConfig.DigitalOceanS3AccessKeyID, newConfig.DigitalOceanS3SecretAccessKey, ""),
+	s3Client, err := minio.New(newConfig.Endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(newConfig.AccessKeyID, newConfig.AccessKey, ""),
 		Secure: true,
 	})
 	if err != nil {
@@ -61,7 +61,7 @@ func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.S3, inputFiles <
 		klog.V(2).Infof("List S3: %s", fileJob.Name)
 		opts := minio.StatObjectOptions{}
 
-		object, err := s3Client.StatObject(context.Background(), newConfig.DigitalOceanS3StockDataBucketName, fileJob.Name, opts)
+		object, err := s3Client.StatObject(context.Background(), newConfig.BucketName, fileJob.Name, opts)
 		if err != nil {
 			klog.Error("stat s3 object: ", err)
 			continue

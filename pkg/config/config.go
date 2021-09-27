@@ -10,11 +10,10 @@ import (
 )
 
 type S3 struct {
-	// TODO fix these names
-	DigitalOceanS3StockDataBucketName string `yaml:"bucket-name"`
-	DigitalOceanS3Endpoint            string `yaml:"endpoint"`
-	DigitalOceanS3AccessKeyID         string `yaml:"access-key-id"`
-	DigitalOceanS3SecretAccessKey     string `yaml:"secret-access-key"`
+	BucketName  string `yaml:"bucket-name"`
+	Endpoint    string `yaml:"endpoint"`
+	AccessKeyID string `yaml:"access-key-id"`
+	AccessKey   string `yaml:"secret-access-key"`
 }
 
 // S3Config holds the data read from the s3.yml
@@ -24,7 +23,7 @@ type S3Config struct {
 
 func (s *S3Config) GetBucketCreds(bucketName string) (*S3, error) {
 	for _, s3 := range s.S3 {
-		if s3.DigitalOceanS3StockDataBucketName == bucketName {
+		if s3.BucketName == bucketName {
 			return s3, nil
 		}
 	}

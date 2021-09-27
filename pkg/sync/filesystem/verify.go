@@ -16,7 +16,7 @@ import (
 
 // Verify checks to see if the FileInfo exists
 func (f *FileSystem) Verify(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.FileInfo, error) {
-	outputFileInfo := make(chan *betav1.FileInfo, 500)
+	outputFileInfo := make(chan *betav1.FileInfo, 10001)
 
 	go verifyS3Files(f.SyncDir, inputFiles, outputFileInfo)
 
