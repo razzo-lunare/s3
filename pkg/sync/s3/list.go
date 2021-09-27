@@ -15,6 +15,7 @@ import (
 	"github.com/razzo-lunare/s3/pkg/sync/betav1"
 )
 
+// List all s3 objects and passes them to the next step
 func (s *S3) List() (<-chan *betav1.FileInfo, error) {
 	asciiterm.PrintfWarn("Listing all objects in s3://%s", s.S3Path)
 	fileInfo := make(chan *betav1.FileInfo, 500)
@@ -68,7 +69,7 @@ func handleListS3ObjectRecursive(id int, goRoutineStatus *GoRoutineStatus, newCo
 	for s3PrefixJob := range s3Prefixes {
 		klog.V(2).Infof("List S3: %s", s3PrefixJob)
 
-		goRoutineStatus.SetStateRunning(id)
+		goRoutineStatus.StartTask(id)
 
 		opts := minio.ListObjectsOptions{
 			UseV1:        false,
@@ -100,7 +101,7 @@ func handleListS3ObjectRecursive(id int, goRoutineStatus *GoRoutineStatus, newCo
 			outputFileInfo <- newFile
 		}
 
-		goRoutineStatus.SetStateDone(id)
+		goRoutineStatus.FinishTask(id)
 
 	}
 }

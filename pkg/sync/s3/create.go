@@ -15,7 +15,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// Create accepts a channel of files to create
+// Create accepts a channel of files to create and passes the fileinfo to the next step
 func (s *S3) Create(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.FileInfo, error) {
 	outputFileInfo := make(chan *betav1.FileInfo, 10001)
 

@@ -8,6 +8,7 @@ import (
 	"github.com/razzo-lunare/s3/pkg/sync/betav1"
 )
 
+// Run kicks off the main goroutine pipeline to either upload or download s3 objects
 func Run(newConfig *config.S3Config, source betav1.SyncObject, destination betav1.SyncObject) error {
 	// Pipeline to download s3 files through multiple pools of goroutines
 

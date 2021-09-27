@@ -9,6 +9,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// S3 represents an s3 bucket and it's creds
 type S3 struct {
 	BucketName  string `yaml:"bucket-name"`
 	Endpoint    string `yaml:"endpoint"`
@@ -21,6 +22,7 @@ type S3Config struct {
 	S3 []*S3 `yaml:"s3"`
 }
 
+// GetBucketCreds searches the s3config to find the creds for a specific bucket
 func (s *S3Config) GetBucketCreds(bucketName string) (*S3, error) {
 	for _, s3 := range s.S3 {
 		if s3.BucketName == bucketName {

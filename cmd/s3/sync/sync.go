@@ -47,6 +47,7 @@ var syncCmd = &cobra.Command{
 	},
 }
 
+// GetSyncObject returns an implementation of a SyncObject either s3 or filesystem
 func GetSyncObject(objectOrFileInput string, config *config.S3Config) betav1.SyncObject {
 
 	// "s3://" or "filesystem://"
@@ -86,6 +87,7 @@ func GetSyncObject(objectOrFileInput string, config *config.S3Config) betav1.Syn
 	}
 }
 
+// NewCommand attaches the sync cmd to the partent
 func NewCommand() *cobra.Command {
 	// Attach the cli indicator default flags
 	syncCmd.Flags().StringP("config", "", "/etc/s3/s3Config.yml", "S3 Config")

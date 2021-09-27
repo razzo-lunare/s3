@@ -14,7 +14,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// Verify checks to see if the FileInfo exists
+// Verify checks to see if the FileInfo exists on the filesystem already and the md5 matches if it doesn't it
+// passes them to the next step to be downloaded
 func (f *FileSystem) Verify(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.FileInfo, error) {
 	outputFileInfo := make(chan *betav1.FileInfo, 10001)
 

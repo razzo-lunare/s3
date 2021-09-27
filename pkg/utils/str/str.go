@@ -4,6 +4,7 @@ import (
 	"regexp"
 )
 
+// RegexGroups returns the group matches for the incoming regex as a map
 func RegexGroups(newRegex *regexp.Regexp, newStr string) map[string]string {
 	subexValues := newRegex.FindStringSubmatch(newStr)
 	subexpNames := newRegex.SubexpNames()

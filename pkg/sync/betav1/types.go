@@ -2,6 +2,7 @@ package betav1
 
 import "io"
 
+// SyncObject is the interface for the goroutine pipeline to dowload/upload s3 objects
 type SyncObject interface {
 	// Returns a channel of files
 	List() (<-chan *FileInfo, error)
@@ -18,6 +19,7 @@ type SyncObject interface {
 	Create(<-chan *FileInfo) (<-chan *FileInfo, error)
 }
 
+// FileInfo is the data that is passed between pipeline steps
 type FileInfo struct {
 	Name string
 	MD5  string

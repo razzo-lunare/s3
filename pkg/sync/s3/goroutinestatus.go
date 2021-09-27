@@ -4,11 +4,17 @@ import (
 	"time"
 )
 
+// GoRoutineStatus is a helper to track when a goroutine that
+// recursively adds more times to the queue finishes. This is done
+// by keeping track of a channel and the state for goroutines
+// to check if they are finished. Each goroutine must update
+// their state when it starts and finish a task.
 type GoRoutineStatus struct {
 	channel chan string
 	state   []int
 }
 
+// NewGoRoutineStatus returns a new GoRoutineStatus
 func NewGoRoutineStatus(numberOfGoRoutines int, s3Prefixes chan string) *GoRoutineStatus {
 	return &GoRoutineStatus{
 		channel: s3Prefixes,
@@ -16,11 +22,12 @@ func NewGoRoutineStatus(numberOfGoRoutines int, s3Prefixes chan string) *GoRouti
 	}
 }
 
+// Wait for the current go routines to finish
 // TODO: This could be cpu intensive.
 func (g *GoRoutineStatus) Wait() {
 	// Verify no jobs are still running
 	for {
-		if g.IsAllDone() {
+		if g.isAllDone() {
 			return
 		}
 		// Vary the sleep time depending how how close we are to finishing
@@ -32,15 +39,17 @@ func (g *GoRoutineStatus) Wait() {
 	}
 }
 
-func (g *GoRoutineStatus) SetStateRunning(goRoutineID int) {
+// StartTask is used inside a goroutine to signify it started work
+func (g *GoRoutineStatus) StartTask(goRoutineID int) {
 	g.state[goRoutineID] = 1
 }
 
-func (g *GoRoutineStatus) SetStateDone(goRoutineID int) {
+// FinishTask is used inside a goroutine to signify it finished work
+func (g *GoRoutineStatus) FinishTask(goRoutineID int) {
 	g.state[goRoutineID] = 0
 }
 
-func (g *GoRoutineStatus) IsAllDone() bool {
+func (g *GoRoutineStatus) isAllDone() bool {
 	// If there is an item in the channel we are
 	if len(g.channel) != 0 {
 		return false

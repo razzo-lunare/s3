@@ -10,10 +10,12 @@ const (
 	asciiColorEnd            = "\033[0m"
 )
 
+// PrintfWarn displays a message in yellow
 func PrintfWarn(format string, msg ...interface{}) {
 	fmt.Printf(eraseCurrentTerminalLine+warningColor+format+asciiColorEnd, msg...)
 }
 
+// PrintfInfo displays a message in blue with a checkbox
 func PrintfInfo(format string, msg ...interface{}) {
 	fmt.Printf(eraseCurrentTerminalLine+infoColor+format+asciiColorEnd, msg...)
 }

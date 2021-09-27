@@ -1,3 +1,5 @@
+GOPATH := $(shell go env GOPATH)
+
 GOOS=darwin
 GOARCH=amd64
 
@@ -29,7 +31,7 @@ clean:
 
 .PHONY: test
 t: test
-test:
+test: fmt vet lint
 	go test ./...
 
 .PHONY: fmt
@@ -43,10 +45,19 @@ vet:
 	go vet ./...
 
 .PHONY: lint
-lint:
-	"$$(go env GOPATH)/bin/golint" -set_exit_status ./...
+lint: $(GOPATH)/bin/golint
+	$(GOPATH)/bin/golint -set_exit_status ./...
 
 .PHONY: test-all
 ta: test-all
 test-all:
 	go test ./...
+
+# Generic function to install a go package
+# go_install,path
+define go_install
+	go install $(1)
+endef
+
+$(GOPATH)/bin/golint:
+	$(call go_install,golang.org/x/lint/golint)

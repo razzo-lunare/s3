@@ -14,7 +14,8 @@ import (
 	"github.com/razzo-lunare/s3/pkg/sync/betav1"
 )
 
-// Verify checks to see if the FileInfo exists
+// Get downloads the content for incoming FileInfo and passes them
+// to the next step
 func (s *S3) Get(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.FileInfo, error) {
 	outputFileInfo := make(chan *betav1.FileInfo, 10001)
 
