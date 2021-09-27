@@ -2,9 +2,17 @@
 
 Dead simple and fast S3 sync
 
+## Getting started
+
+1. Download cli from the [Github release](https://github.com/razzo-lunare/s3/releases/latest)
+
+2. Setup the [s3 config](configs/s3.yaml.example)
+
+3. Test the cli following the examples below
+
 ## Source or Destination list
 
-`s3://`: A location inside an S3 bucket
+`s3://`: A location inside an S3 bucket.
 
 example: s3://dates-bucket/2021-02-10/
 

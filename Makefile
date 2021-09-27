@@ -22,7 +22,6 @@ build-darwin: GOOS=darwin
 build-darwin: GOARCH=amd64
 build-darwin: build
 
-
 .PHONY: clean
 c: clean
 clean:
