@@ -12,14 +12,28 @@ Dead simple and fast S3 sync
 
 ## Source or Destination list
 
-`s3://`: A location inside an S3 bucket.
+`s3://<BUCKET NAME>/<OPTIONAL PATH ON S3>`: A location inside an S3 bucket.
 
-example: s3://dates-bucket/2021-02-10/
+example with a subpath inside the bucket
+```
+s3://dates-bucket/2021-02-10/
+```
 
-`filesystem://`: A location on your local filesystem
+example with only the bucket
+```
+s3://dates-bucket/
+```
 
-example relative path: filesystem://outputs/dates/
-example absolute path: filesystem:///root/outputs/dates/
+`filesystem://<AN ABSOLUTE OR RELATIVE PATH>`: A location on your local filesystem
+
+example relative path
+```
+filesystem://outputs/dates/
+```
+example absolute path
+```
+filesystem:///root/outputs/dates/
+```
 
 ## Examples
 
