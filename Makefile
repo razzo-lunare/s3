@@ -60,4 +60,4 @@ define go_install
 endef
 
 $(GOPATH)/bin/golint:
-	$(call go_install,golang.org/x/lint/golint)
+	$(call go_install,golang.org/x/lint/golint@latest)
