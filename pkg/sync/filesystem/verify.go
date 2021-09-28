@@ -9,9 +9,10 @@ import (
 	"runtime"
 	"sync"
 
+	"k8s.io/klog/v2"
+
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
 	"github.com/razzo-lunare/s3/pkg/sync/betav1"
-	"k8s.io/klog/v2"
 )
 
 // Verify checks to see if the FileInfo exists on the filesystem already and the md5 matches if it doesn't it

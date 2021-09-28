@@ -2,20 +2,17 @@ package s3
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/hex"
-	"io"
 	"log"
-	"os"
 	"runtime"
 	"sync"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"k8s.io/klog/v2"
+
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
 	"github.com/razzo-lunare/s3/pkg/config"
 	"github.com/razzo-lunare/s3/pkg/sync/betav1"
-	"k8s.io/klog/v2"
 )
 
 // Verify checks to see if the FileInfo exists
@@ -58,12 +55,12 @@ func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.S3, inputFiles <
 	}
 
 	for fileJob := range inputFiles {
-		klog.V(2).Infof("List S3: %s", fileJob.Name)
+		klog.V(2).Infof("Verify S3: %s -> %s", fileJob.Name, fileJob.MD5)
 		opts := minio.StatObjectOptions{}
 
 		object, err := s3Client.StatObject(context.Background(), newConfig.BucketName, fileJob.Name, opts)
 		if err != nil {
-			klog.Error("stat s3 object: ", err)
+			klog.Errorf("stat s3 object: %s, %s: %s", newConfig.BucketName, fileJob.Name, err)
 			continue
 		}
 
@@ -71,7 +68,7 @@ func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.S3, inputFiles <
 			Name: object.Key,
 			MD5:  object.ETag,
 		}
-		if fileJob != newFile {
+		if fileJob.MD5 != newFile.MD5 && fileJob.Name != newFile.Name {
 			// download the file from s3
 			outputFileInfo <- fileJob
 			continue
@@ -80,26 +77,4 @@ func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.S3, inputFiles <
 
 	// Notify parent proccess that all items have been verified
 	wg.Done()
-}
-
-func hashFileMd5(filePath string) (string, error) {
-
-	var returnMD5String string
-	file, err := os.Open(filePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "FILE_NOT_FOUND THIS WILL TRIGGER A NEW FILE TO DOWNLOAD", nil
-		}
-
-		return returnMD5String, err
-	}
-
-	defer file.Close()
-	hash := md5.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return returnMD5String, err
-	}
-	hashInBytes := hash.Sum(nil)[:16]
-	returnMD5String = hex.EncodeToString(hashInBytes)
-	return returnMD5String, nil
 }
