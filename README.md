@@ -2,6 +2,11 @@
 
 Dead simple and fast S3 sync
 
+## How is this faster?
+Most S3 sync tools will call the list API for the root path you provide and rely on the S3 API to do the heavy lifting to list your objects.
+This can be really slow because it's bounded to one thread.
+Instead this tool recursively calls the S3 api using a large goroutine pool to process each subsequent directory until it list all your objects.
+
 ## Getting started
 
 1. Download cli from the [Github release](https://github.com/razzo-lunare/s3/releases/latest)
