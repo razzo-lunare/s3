@@ -20,12 +20,12 @@ import (
 func (s *FileSystem) Get(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.FileInfo, error) {
 	outputFileInfo := make(chan *betav1.FileInfo, 10001)
 
-	go getS3Files(inputFiles, outputFileInfo)
+	go getS3Files(s.SyncDir, inputFiles, outputFileInfo)
 
 	return outputFileInfo, nil
 }
 
-func getS3Files(inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
+func getS3Files(syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 	numCPU := runtime.NumCPU()
 	wg := &sync.WaitGroup{}
 
@@ -33,6 +33,7 @@ func getS3Files(inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav
 		wg.Add(1)
 		go handleGetS3Object(
 			wg,
+			syncDir,
 			inputFiles,
 			outputFileInfo,
 		)
@@ -45,20 +46,35 @@ func getS3Files(inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav
 }
 
 // handleListS3ObjectRecursive gathers the files in the S3
-func handleGetS3Object(wg *sync.WaitGroup, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
+func handleGetS3Object(wg *sync.WaitGroup, syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 
 	for fileJob := range inputFiles {
-		klog.V(2).Infof("Get S3: %s", fileJob.Name)
+		stockFile := syncDir + fileJob.Name
+		klog.V(1).Infof("Get S3: %s", stockFile)
 
-		fileContent, err := os.ReadFile(fileJob.Name)
+		file, err := os.Open(stockFile)
+		if err != nil {
+			klog.Errorf("FileSystem Get() open file %s: %s", stockFile, err)
+			continue
+		}
+		fileStat, err := file.Stat()
+		if err != nil {
+			klog.Errorf("FileSystem Get() stat file %s: %s", stockFile, err)
+			continue
+		}
+		file.Close()
+
+		fileContent, err := os.ReadFile(stockFile)
 		if err != nil {
 			klog.Error("FileSystem Get() read file error: ", err)
+			continue
 		}
 
 		newFileContent := &betav1.FileInfo{
-			Name:    fileJob.Name,
-			MD5:     fileJob.MD5,
-			Content: bytes.NewReader(fileContent),
+			Name:        fileJob.Name,
+			MD5:         fileJob.MD5,
+			Content:     bytes.NewReader(fileContent),
+			ContentSize: fileStat.Size(),
 		}
 
 		outputFileInfo <- newFileContent

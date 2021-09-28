@@ -59,16 +59,20 @@ func handleVerifyS3Object(wg *sync.WaitGroup, newConfig *config.S3, inputFiles <
 		opts := minio.StatObjectOptions{}
 
 		object, err := s3Client.StatObject(context.Background(), newConfig.BucketName, fileJob.Name, opts)
+
+		name := ""
+		md5 := ""
+
 		if err != nil {
 			klog.Errorf("stat s3 object: %s, %s: %s", newConfig.BucketName, fileJob.Name, err)
-			continue
+			name = fileJob.Name
+			md5 = "FILE_NOT_FOUND THIS WILL TRIGGER A NEW FILE TO BE UPLOADED :("
+		} else {
+			name = object.Key
+			md5 = object.ETag
 		}
 
-		newFile := &betav1.FileInfo{
-			Name: object.Key,
-			MD5:  object.ETag,
-		}
-		if fileJob.MD5 != newFile.MD5 && fileJob.Name != newFile.Name {
+		if fileJob.MD5 != md5 && fileJob.Name == name {
 			// download the file from s3
 			outputFileInfo <- fileJob
 			continue

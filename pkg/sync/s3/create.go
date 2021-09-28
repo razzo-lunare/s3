@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"context"
 	"fmt"
 	"runtime"
 	"sync"
@@ -53,23 +54,22 @@ func handleUploadS3ObjectNew1(wg *sync.WaitGroup, newConfig *config.S3, inputFil
 	}
 
 	for fileJob := range inputFiles {
-		klog.V(1).Infof("Create S3: %s", fileJob.Name)
-		_ = s3Client
-		// uploadInfo, err := s3Client.PutObject(
-		// 	context.Background(),
-		// 	newConfig.BucketName,
-		// 	fileJob.Name,
-		// 	fileJob.Content,
-		// 	0, // Not setting content size, this is a test :)
-		// 	minio.PutObjectOptions{ContentType: "application/octet-stream"},
-		// )
-		// if err != nil {
-		// 	fmt.Println("error making dir, ", err)
+		klog.V(1).Infof("Create S3: %s %d", fileJob.Name, fileJob.ContentSize)
+		uploadInfo, err := s3Client.PutObject(
+			context.Background(),
+			newConfig.BucketName,
+			fileJob.Name,
+			fileJob.Content,
+			fileJob.ContentSize,
+			minio.PutObjectOptions{ContentType: "application/json"},
+		)
+		if err != nil {
+			fmt.Println("error making dir, ", err)
 
-		// 	continue
-		// }
+			continue
+		}
 
-		// klog.Info("Uploaded: ", uploadInfo.Key)
+		klog.Info("Uploaded: ", uploadInfo.Key)
 
 		outputFileInfo <- fileJob
 	}

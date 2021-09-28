@@ -25,5 +25,6 @@ type FileInfo struct {
 	MD5  string
 
 	// Content is defined in the 'Get()' func
-	Content io.Reader
+	Content     io.Reader
+	ContentSize int64
 }

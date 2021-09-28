@@ -45,4 +45,6 @@ func listFiles(SyncDir string, localFiles chan *betav1.FileInfo) {
 	if err != nil {
 		klog.Errorf("walking directory error: ", err)
 	}
+
+	close(localFiles)
 }
