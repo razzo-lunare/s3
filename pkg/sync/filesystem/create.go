@@ -12,6 +12,7 @@ import (
 
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
 	"github.com/razzo-lunare/s3/pkg/sync/betav1"
+	"github.com/razzo-lunare/s3/pkg/utils/average"
 )
 
 // Create accepts a channel of files to create
@@ -24,13 +25,15 @@ func (f *FileSystem) Create(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.
 }
 
 func downloadS3Files(syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
-	numCPU := runtime.NumCPU()
+	numCPU := runtime.NumCPU() * 3
 	wg := &sync.WaitGroup{}
+	jobTimer := average.New()
 
-	for w := 1; w <= numCPU*2; w++ {
+	for w := 1; w <= numCPU; w++ {
 		wg.Add(1)
 		go handleDownloadS3ObjectNew(
 			wg,
+			jobTimer,
 			syncDir,
 			inputFiles,
 			outputFileInfo,
@@ -39,13 +42,14 @@ func downloadS3Files(syncDir string, inputFiles <-chan *betav1.FileInfo, outputF
 	wg.Wait()
 	close(outputFileInfo)
 
-	asciiterm.PrintfInfo("downloaded all s3 objects\n")
+	asciiterm.PrintfInfo("downloaded all s3 objects. Time: %f\n", jobTimer.GetAverage())
 }
 
 // handleListS3Object gathers the files in the S3
-func handleDownloadS3ObjectNew(wg *sync.WaitGroup, syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
+func handleDownloadS3ObjectNew(wg *sync.WaitGroup, jobTimer *average.JobAverageInt, syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 
 	for fileJob := range inputFiles {
+		jobTimer.StartTimer()
 		klog.V(2).Infof("Create S3: %s", fileJob.Name)
 
 		tickerDestinationFile := syncDir + fileJob.Name
@@ -75,13 +79,15 @@ func handleDownloadS3ObjectNew(wg *sync.WaitGroup, syncDir string, inputFiles <-
 		localFile.Close()
 
 		outputFileInfo <- fileJob
+		jobTimer.EndTimer()
 	}
 
 	wg.Done()
 }
 
 var (
-	dirCache = map[string]interface{}{}
+	dirCache     = map[string]interface{}{}
+	dirCacheLock = sync.Mutex{}
 )
 
 func createDir(pathToCreate string) error {
@@ -98,7 +104,9 @@ func createDir(pathToCreate string) error {
 			}
 		}
 
+		dirCacheLock.Lock()
 		dirCache[pathToCreate] = nil
+		dirCacheLock.Unlock()
 	}
 
 	return nil

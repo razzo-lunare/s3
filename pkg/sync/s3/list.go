@@ -13,6 +13,7 @@ import (
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
 	"github.com/razzo-lunare/s3/pkg/config"
 	"github.com/razzo-lunare/s3/pkg/sync/betav1"
+	"github.com/razzo-lunare/s3/pkg/utils/average"
 )
 
 // List all s3 objects and passes them to the next step
@@ -26,14 +27,15 @@ func (s *S3) List() (<-chan *betav1.FileInfo, error) {
 }
 
 func listS3Files(s3Config *config.S3, s3Prefix string, outputFileInfo chan<- *betav1.FileInfo) {
-
 	numCPU := runtime.NumCPU()
-
 	s3Prefixes := make(chan string, 10001)
-	goRoutineStatus := NewGoRoutineStatus(numCPU/2, s3Prefixes)
-	for instanceID := 0; instanceID < numCPU/2; instanceID++ {
+	goRoutineStatus := NewGoRoutineStatus(numCPU, s3Prefixes)
+	jobTimer := average.New()
+
+	for instanceID := 0; instanceID < numCPU; instanceID++ {
 		go handleListS3ObjectRecursive(
 			instanceID,
+			jobTimer,
 			goRoutineStatus,
 			s3Config,
 			s3Prefixes,
@@ -52,11 +54,11 @@ func listS3Files(s3Config *config.S3, s3Prefix string, outputFileInfo chan<- *be
 	// Notify the next step in the pipeline there are no more files listed
 	close(outputFileInfo)
 
-	asciiterm.PrintfInfo("Finished Listing all files in s3\n")
+	asciiterm.PrintfInfo("Finished Listing all files in s3. Time: %f\n", jobTimer.GetAverage())
 }
 
 // handleListS3ObjectRecursive gathers the files in the S3
-func handleListS3ObjectRecursive(id int, goRoutineStatus *GoRoutineStatus, newConfig *config.S3, s3Prefixes chan string, outputFileInfo chan<- *betav1.FileInfo) {
+func handleListS3ObjectRecursive(id int, jobTimer *average.JobAverageInt, goRoutineStatus *GoRoutineStatus, newConfig *config.S3, s3Prefixes chan string, outputFileInfo chan<- *betav1.FileInfo) {
 
 	s3Client, err := minio.New(newConfig.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(newConfig.AccessKeyID, newConfig.AccessKey, ""),
@@ -67,9 +69,9 @@ func handleListS3ObjectRecursive(id int, goRoutineStatus *GoRoutineStatus, newCo
 	}
 
 	for s3PrefixJob := range s3Prefixes {
-		klog.V(2).Infof("List S3: %s", s3PrefixJob)
-
 		goRoutineStatus.StartTask(id)
+		jobTimer.StartTimer()
+		klog.V(2).Infof("List S3: %s", s3PrefixJob)
 
 		opts := minio.ListObjectsOptions{
 			UseV1:        false,
@@ -101,8 +103,8 @@ func handleListS3ObjectRecursive(id int, goRoutineStatus *GoRoutineStatus, newCo
 			outputFileInfo <- newFile
 		}
 
+		jobTimer.EndTimer()
 		goRoutineStatus.FinishTask(id)
-
 	}
 }
 

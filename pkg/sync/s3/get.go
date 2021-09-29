@@ -12,6 +12,7 @@ import (
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
 	"github.com/razzo-lunare/s3/pkg/config"
 	"github.com/razzo-lunare/s3/pkg/sync/betav1"
+	"github.com/razzo-lunare/s3/pkg/utils/average"
 )
 
 // Get downloads the content for incoming FileInfo and passes them
@@ -27,11 +28,13 @@ func (s *S3) Get(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.FileInfo, e
 func getS3Files(s3Config *config.S3, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 	numCPU := runtime.NumCPU()
 	wg := &sync.WaitGroup{}
+	jobTimer := average.New()
 
 	for w := 1; w <= numCPU/2; w++ {
 		wg.Add(1)
 		go handleGetS3Object(
 			wg,
+			jobTimer,
 			s3Config,
 			inputFiles,
 			outputFileInfo,
@@ -41,11 +44,11 @@ func getS3Files(s3Config *config.S3, inputFiles <-chan *betav1.FileInfo, outputF
 	wg.Wait()
 	close(outputFileInfo)
 
-	asciiterm.PrintfInfo("Gathered file content for the files that need to be downloaded\n")
+	asciiterm.PrintfInfo("Gathered file content for the files that need to be downloaded. Time: %f\n", jobTimer.GetAverage())
 }
 
 // handleListS3ObjectRecursive gathers the files in the S3
-func handleGetS3Object(wg *sync.WaitGroup, newConfig *config.S3, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
+func handleGetS3Object(wg *sync.WaitGroup, jobTimer *average.JobAverageInt, newConfig *config.S3, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 
 	s3Client, err := minio.New(newConfig.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(newConfig.AccessKeyID, newConfig.AccessKey, ""),
@@ -58,6 +61,7 @@ func handleGetS3Object(wg *sync.WaitGroup, newConfig *config.S3, inputFiles <-ch
 
 	for fileJob := range inputFiles {
 		klog.V(2).Infof("Get S3: %s", fileJob.Name)
+		jobTimer.StartTimer()
 
 		s3Object, err := s3Client.GetObject(
 			context.Background(),
@@ -82,6 +86,8 @@ func handleGetS3Object(wg *sync.WaitGroup, newConfig *config.S3, inputFiles <-ch
 		}
 
 		outputFileInfo <- newFileContent
+
+		jobTimer.EndTimer()
 	}
 
 	wg.Done()

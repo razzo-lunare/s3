@@ -13,6 +13,7 @@ import (
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
 	"github.com/razzo-lunare/s3/pkg/config"
 	"github.com/razzo-lunare/s3/pkg/sync/betav1"
+	"github.com/razzo-lunare/s3/pkg/utils/average"
 )
 
 // Create accepts a channel of files to create and passes the fileinfo to the next step
@@ -25,13 +26,15 @@ func (s *S3) Create(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.FileInfo
 }
 
 func uploadS3Files(s3Config *config.S3, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
-	numCPU := runtime.NumCPU()
+	numCPU := runtime.NumCPU() * 3
 	wg := &sync.WaitGroup{}
+	jobTimer := average.New()
 
-	for w := 1; w <= numCPU*2; w++ {
+	for w := 1; w <= numCPU; w++ {
 		wg.Add(1)
 		go handleUploadS3ObjectNew1(
 			wg,
+			jobTimer,
 			s3Config,
 			inputFiles,
 			outputFileInfo,
@@ -40,11 +43,11 @@ func uploadS3Files(s3Config *config.S3, inputFiles <-chan *betav1.FileInfo, outp
 	wg.Wait()
 	close(outputFileInfo)
 
-	asciiterm.PrintfInfo("Uploaded all s3 objects\n")
+	asciiterm.PrintfInfo("Uploaded all s3 objects. Time: %f\n", jobTimer.GetAverage())
 }
 
 // handleUploadS3ObjectNew1 gathers the files in the S3
-func handleUploadS3ObjectNew1(wg *sync.WaitGroup, newConfig *config.S3, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
+func handleUploadS3ObjectNew1(wg *sync.WaitGroup, jobTimer *average.JobAverageInt, newConfig *config.S3, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 	s3Client, err := minio.New(newConfig.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(newConfig.AccessKeyID, newConfig.AccessKey, ""),
 		Secure: true,
@@ -54,6 +57,8 @@ func handleUploadS3ObjectNew1(wg *sync.WaitGroup, newConfig *config.S3, inputFil
 	}
 
 	for fileJob := range inputFiles {
+		jobTimer.StartTimer()
+
 		klog.V(1).Infof("Create S3: %s %d", fileJob.Name, fileJob.ContentSize)
 		uploadInfo, err := s3Client.PutObject(
 			context.Background(),
@@ -72,6 +77,7 @@ func handleUploadS3ObjectNew1(wg *sync.WaitGroup, newConfig *config.S3, inputFil
 		klog.Info("Uploaded: ", uploadInfo.Key)
 
 		outputFileInfo <- fileJob
+		jobTimer.EndTimer()
 	}
 
 	wg.Done()

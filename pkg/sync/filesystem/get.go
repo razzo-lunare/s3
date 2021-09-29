@@ -10,6 +10,7 @@ import (
 
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
 	"github.com/razzo-lunare/s3/pkg/sync/betav1"
+	"github.com/razzo-lunare/s3/pkg/utils/average"
 )
 
 // Get gathers the content for incoming FileInfo and passes them
@@ -28,11 +29,13 @@ func (s *FileSystem) Get(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.Fil
 func getS3Files(syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 	numCPU := runtime.NumCPU()
 	wg := &sync.WaitGroup{}
+	jobTimer := average.New()
 
 	for w := 1; w <= numCPU/2; w++ {
 		wg.Add(1)
 		go handleGetS3Object(
 			wg,
+			jobTimer,
 			syncDir,
 			inputFiles,
 			outputFileInfo,
@@ -42,13 +45,14 @@ func getS3Files(syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileIn
 	wg.Wait()
 	close(outputFileInfo)
 
-	asciiterm.PrintfInfo("Gathered file content for the files that need to be downloaded\n")
+	asciiterm.PrintfInfo("Gathered file content for the files that need to be downloaded. Time: %f\n", jobTimer.GetAverage())
 }
 
 // handleListS3ObjectRecursive gathers the files in the S3
-func handleGetS3Object(wg *sync.WaitGroup, syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
+func handleGetS3Object(wg *sync.WaitGroup, jobTimer *average.JobAverageInt, syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 
 	for fileJob := range inputFiles {
+		jobTimer.StartTimer()
 		stockFile := syncDir + fileJob.Name
 		klog.V(1).Infof("Get S3: %s", stockFile)
 
@@ -78,6 +82,7 @@ func handleGetS3Object(wg *sync.WaitGroup, syncDir string, inputFiles <-chan *be
 		}
 
 		outputFileInfo <- newFileContent
+		jobTimer.EndTimer()
 	}
 
 	wg.Done()

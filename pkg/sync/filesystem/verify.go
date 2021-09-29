@@ -13,6 +13,7 @@ import (
 
 	"github.com/razzo-lunare/s3/pkg/asciiterm"
 	"github.com/razzo-lunare/s3/pkg/sync/betav1"
+	"github.com/razzo-lunare/s3/pkg/utils/average"
 )
 
 // Verify checks to see if the FileInfo exists on the filesystem already and the md5 matches if it doesn't it
@@ -28,11 +29,13 @@ func (f *FileSystem) Verify(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.
 func verifyS3Files(syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 	numCPU := runtime.NumCPU()
 	wg := &sync.WaitGroup{}
+	jobTimer := average.New()
 
 	for w := 1; w <= numCPU/2; w++ {
 		wg.Add(1)
 		go handleVerifyS3Object(
 			wg,
+			jobTimer,
 			syncDir,
 			inputFiles,
 			outputFileInfo,
@@ -42,15 +45,15 @@ func verifyS3Files(syncDir string, inputFiles <-chan *betav1.FileInfo, outputFil
 	wg.Wait()
 	close(outputFileInfo)
 
-	asciiterm.PrintfInfo("Identified files that need to be downloaded\n")
+	asciiterm.PrintfInfo("Identified files that need to be downloaded. Time: %f\n", jobTimer.GetAverage())
 }
 
 // handleListS3Object gathers the files in the S3
-func handleVerifyS3Object(wg *sync.WaitGroup, syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
+func handleVerifyS3Object(wg *sync.WaitGroup, jobTimer *average.JobAverageInt, syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 
 	for fileJob := range inputFiles {
 		klog.V(2).Infof("Create S3: %s", fileJob.Name)
-
+		jobTimer.StartTimer()
 		stockFile := syncDir + fileJob.Name
 
 		// S3 object doesn't exist on filesystem
@@ -74,6 +77,7 @@ func handleVerifyS3Object(wg *sync.WaitGroup, syncDir string, inputFiles <-chan 
 			// download the file from s3
 			outputFileInfo <- fileJob
 		}
+		jobTimer.EndTimer()
 	}
 
 	// Notify parent proccess that all items have been verified
