@@ -31,7 +31,7 @@ func getS3Files(syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileIn
 	wg := &sync.WaitGroup{}
 	jobTimer := average.New()
 
-	for w := 1; w <= numCPU/2; w++ {
+	for w := 1; w <= numCPU; w++ {
 		wg.Add(1)
 		go handleGetS3Object(
 			wg,

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -75,8 +76,15 @@ func GetSyncObject(objectOrFileInput string, config *config.S3Config) betav1.Syn
 	case "filesystem":
 		rx := regexp.MustCompile(`filesystem://(?P<FileSystemPath>.*)`)
 		regexGroups := str.RegexGroups(rx, objectOrFileInput)
+
+		fsPath := regexGroups["FileSystemPath"]
+		// Make sure the filesystem path ends with a slash
+		if !strings.HasSuffix(regexGroups["FileSystemPath"], "/") {
+			fsPath += "/"
+		}
+
 		return &filesystem.FileSystem{
-			SyncDir: regexGroups["FileSystemPath"],
+			SyncDir: fsPath,
 		}
 	default:
 		log.Fatalf("Invalid Sync Input Type %s", objectOrFileInput)
