@@ -56,14 +56,11 @@ func GetSyncObject(objectOrFileInput string, config *config.S3Config) betav1.Syn
 
 	switch regexGroups["InputType"] {
 	case "s3":
-		rx := regexp.MustCompile(`s3://(?P<BucketName>[A-Za-z1-9-]+)/(?P<S3Path>.*)`)
+		rx := regexp.MustCompile(`s3://(?P<BucketName>[A-Za-z1-9-]+)/?(?P<S3Path>.*)`)
 		regexGroups := str.RegexGroups(rx, objectOrFileInput)
 
 		if regexGroups["BucketName"] == "" {
 			log.Fatalf("No bucket name found in s3 argument\n")
-		}
-		if regexGroups["S3Path"] == "" {
-			log.Fatalf("No s3 path found in s3 argument\n")
 		}
 		bucketConfig, err := config.GetBucketCreds(regexGroups["BucketName"])
 		if err != nil {
@@ -71,6 +68,7 @@ func GetSyncObject(objectOrFileInput string, config *config.S3Config) betav1.Syn
 		}
 
 		return &s3.S3{
+			// The S3Path can be empty in the regex since it could point the root of the repo
 			S3Path: regexGroups["S3Path"],
 			Config: bucketConfig,
 		}
