@@ -45,7 +45,7 @@ func getS3Files(syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileIn
 	wg.Wait()
 	close(outputFileInfo)
 
-	asciiterm.PrintfInfo("Gathered file content for the files that need to be downloaded. Time: %f\n", jobTimer.GetAverage())
+	asciiterm.PrintfInfo("Gathered file content for the files that need to be downloaded. Time: %.2f Jobs: %d\n", jobTimer.GetAverage(), jobTimer.Count)
 }
 
 // handleListS3ObjectRecursive gathers the files in the S3

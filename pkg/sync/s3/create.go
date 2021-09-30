@@ -43,7 +43,7 @@ func uploadS3Files(s3Config *config.S3, inputFiles <-chan *betav1.FileInfo, outp
 	wg.Wait()
 	close(outputFileInfo)
 
-	asciiterm.PrintfInfo("Uploaded all s3 objects. Time: %f\n", jobTimer.GetAverage())
+	asciiterm.PrintfInfo("Uploaded all s3 objects. Time: %.2f Jobs: %d\n", jobTimer.GetAverage(), jobTimer.Count)
 }
 
 // handleUploadS3ObjectNew1 gathers the files in the S3

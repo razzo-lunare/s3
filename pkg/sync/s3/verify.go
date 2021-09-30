@@ -47,7 +47,7 @@ func verifyS3Files(s3Config *config.S3, inputFiles <-chan *betav1.FileInfo, outp
 	wg.Wait()
 	close(outputFileInfo)
 
-	asciiterm.PrintfInfo("Identified files that need to be downloaded. Time: %f\n", jobTimer.GetAverage())
+	asciiterm.PrintfInfo("Identified files that need to be downloaded. Time: %.2f Jobs: %d\n", jobTimer.GetAverage(), jobTimer.Count)
 }
 
 // handleVerifyS3Object gathers the files in the S3

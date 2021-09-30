@@ -42,7 +42,7 @@ func downloadS3Files(syncDir string, inputFiles <-chan *betav1.FileInfo, outputF
 	wg.Wait()
 	close(outputFileInfo)
 
-	asciiterm.PrintfInfo("downloaded all s3 objects. Time: %f\n", jobTimer.GetAverage())
+	asciiterm.PrintfInfo("downloaded all s3 objects. Time: %.2f Jobs: %d\n", jobTimer.GetAverage(), jobTimer.Count)
 }
 
 // handleListS3Object gathers the files in the S3

@@ -54,7 +54,7 @@ func listS3Files(s3Config *config.S3, s3Prefix string, outputFileInfo chan<- *be
 	// Notify the next step in the pipeline there are no more files listed
 	close(outputFileInfo)
 
-	asciiterm.PrintfInfo("Finished Listing all files in s3. Time: %f\n", jobTimer.GetAverage())
+	asciiterm.PrintfInfo("Finished Listing all files in s3. Time: %.2f Jobs: %d\n", jobTimer.GetAverage(), jobTimer.Count)
 }
 
 // handleListS3ObjectRecursive gathers the files in the S3
