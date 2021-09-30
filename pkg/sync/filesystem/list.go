@@ -20,7 +20,6 @@ func (f *FileSystem) List() (<-chan *betav1.FileInfo, error) {
 	return localFiles, nil
 }
 
-// TODO write this list function similar to the others so it's fast by using a pool of threads
 func listFiles(SyncDir string, localFiles chan *betav1.FileInfo) {
 	walk := func(path string, d fs.DirEntry, e error) error {
 		if e != nil {

@@ -1,7 +1,7 @@
 # -------- S3 Creds (this should work with any S3)
-#    - List of all the buckets we are going to talk too
+#    - List of all the buckets the S3 CLI is going to talk too
 s3:
-- bucket-name: fortuna-stock-data-new
-  endpoint: sfo2.digitaloceanspaces.com
-  access-key-id: "TODO"
-  secret-access-key: "TODO"
+- bucket-name:           # Example: dates-bucket
+  endpoint:              # Example: sfo2.digitaloceanspaces.com
+  access-key-id:
+  secret-access-key:

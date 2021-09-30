@@ -1,5 +1,3 @@
 # `/configs`
 
-Configuration file templates or default configs.
-
-Put your `confd` or `consul-template` template files here.
+Configuration file for the s3 cli. Copy the example to create your own
