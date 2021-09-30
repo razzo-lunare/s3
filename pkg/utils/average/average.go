@@ -40,6 +40,12 @@ func (a *JobAverageInt) GetAverage() float64 {
 	for _, value := range a.Values {
 		total += value
 	}
+
+	// Block divide by zero errors
+	if total == 0 || a.Count == 0 {
+		return 0
+	}
+
 	return float64(total) / float64(a.Count)
 }
 
