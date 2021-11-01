@@ -3,19 +3,20 @@ module github.com/razzo-lunare/s3
 go 1.17
 
 require (
-	github.com/minio/minio-go/v7 v7.0.14
+	github.com/minio/minio-go/v7 v7.0.15
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
-	k8s.io/klog/v2 v2.20.0
+	k8s.io/klog/v2 v2.30.0
 )
 
 require (
 	github.com/dustin/go-humanize v1.0.0 // indirect
-	github.com/go-logr/logr v1.0.0 // indirect
+	github.com/go-logr/logr v1.2.0 // indirect
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.11 // indirect
+	github.com/klauspost/compress v1.13.5 // indirect
 	github.com/klauspost/cpuid v1.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/minio/md5-simd v1.1.0 // indirect

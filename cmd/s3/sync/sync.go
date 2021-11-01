@@ -68,6 +68,13 @@ func GetSyncObject(objectOrFileInput string, config *config.S3Config) betav1.Syn
 			return nil
 		}
 
+		// Append a "/" to the end of the s3 prefix if it doesn't exist
+		if regexGroups["S3Path"] != "" {
+			if !strings.HasSuffix(regexGroups["S3Path"], "/") {
+				regexGroups["S3Path"] += "/"
+			}
+		}
+
 		return &s3.S3{
 			// The S3Path can be empty in the regex since it could point the root of the repo
 			S3Path: regexGroups["S3Path"],

@@ -27,6 +27,8 @@ func (f *FileSystem) Verify(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.
 }
 
 func verifyS3Files(syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
+	klog.V(1).Info("Identifying files that need to be downloaded")
+
 	numCPU := runtime.NumCPU()
 	wg := &sync.WaitGroup{}
 	jobTimer := average.New()
@@ -52,7 +54,7 @@ func verifyS3Files(syncDir string, inputFiles <-chan *betav1.FileInfo, outputFil
 func handleVerifyS3Object(wg *sync.WaitGroup, jobTimer *average.JobAverageInt, syncDir string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 
 	for fileJob := range inputFiles {
-		klog.V(2).Infof("Create S3: %s", fileJob.Name)
+		klog.V(2).Infof("Verify S3: %s", fileJob.Name)
 		jobTimer.StartTimer()
 		stockFile := syncDir + fileJob.Name
 
@@ -72,8 +74,6 @@ func handleVerifyS3Object(wg *sync.WaitGroup, jobTimer *average.JobAverageInt, s
 
 		// S3 OBJECT MD5 DOESN'T MATCH THE FILE ON THE FILESYSTEM
 		if fileOnDiskMd5 != fileJob.MD5 {
-			fmt.Println("UPDATE: %s" + fileJob.Name)
-
 			// download the file from s3
 			outputFileInfo <- fileJob
 		}

@@ -20,12 +20,12 @@ import (
 func (s *S3) Create(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.FileInfo, error) {
 	outputFileInfo := make(chan *betav1.FileInfo, 10001)
 
-	go uploadS3Files(s.Config, inputFiles, outputFileInfo)
+	go uploadS3Files(s.Config, inputFiles, outputFileInfo, s.S3Path)
 
 	return outputFileInfo, nil
 }
 
-func uploadS3Files(s3Config *config.S3, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
+func uploadS3Files(s3Config *config.S3, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo, S3Path string) {
 	numCPU := runtime.NumCPU() * 3
 	wg := &sync.WaitGroup{}
 	jobTimer := average.New()
@@ -38,6 +38,7 @@ func uploadS3Files(s3Config *config.S3, inputFiles <-chan *betav1.FileInfo, outp
 			s3Config,
 			inputFiles,
 			outputFileInfo,
+			S3Path,
 		)
 	}
 	wg.Wait()
@@ -47,7 +48,7 @@ func uploadS3Files(s3Config *config.S3, inputFiles <-chan *betav1.FileInfo, outp
 }
 
 // handleUploadS3ObjectNew1 gathers the files in the S3
-func handleUploadS3ObjectNew1(wg *sync.WaitGroup, jobTimer *average.JobAverageInt, newConfig *config.S3, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
+func handleUploadS3ObjectNew1(wg *sync.WaitGroup, jobTimer *average.JobAverageInt, newConfig *config.S3, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo, S3Path string) {
 	s3Client, err := minio.New(newConfig.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(newConfig.AccessKeyID, newConfig.AccessKey, ""),
 		Secure: true,
@@ -59,11 +60,13 @@ func handleUploadS3ObjectNew1(wg *sync.WaitGroup, jobTimer *average.JobAverageIn
 	for fileJob := range inputFiles {
 		jobTimer.StartTimer()
 
-		klog.V(1).Infof("Create S3: %s %d", fileJob.Name, fileJob.ContentSize)
+		destinationFullPath := S3Path + fileJob.Name
+
+		klog.V(1).Infof("Create S3: %s %d", destinationFullPath, fileJob.ContentSize)
 		uploadInfo, err := s3Client.PutObject(
 			context.Background(),
 			newConfig.BucketName,
-			fileJob.Name,
+			destinationFullPath,
 			fileJob.Content,
 			fileJob.ContentSize,
 			minio.PutObjectOptions{ContentType: "application/json"},
@@ -74,7 +77,7 @@ func handleUploadS3ObjectNew1(wg *sync.WaitGroup, jobTimer *average.JobAverageIn
 			continue
 		}
 
-		klog.Info("Uploaded: ", uploadInfo.Key)
+		klog.V(1).Info("Uploaded: ", uploadInfo.Key)
 
 		outputFileInfo <- fileJob
 		jobTimer.EndTimer()

@@ -10,13 +10,13 @@ type SyncObject interface {
 	// Verify checks to see if the FileInfo needs to be downloaded by;
 	// - checking if the resource exists in the destination
 	// - the md5 matches in the source and destination
-	Verify(<-chan *FileInfo) (<-chan *FileInfo, error)
+	Verify(inputFileInfo <-chan *FileInfo) (<-chan *FileInfo, error)
 
 	// Get downloads the contents of the object or file
-	Get(<-chan *FileInfo) (<-chan *FileInfo, error)
+	Get(inputFileInfo <-chan *FileInfo) (<-chan *FileInfo, error)
 
 	// Create accepts a channel of files to create and writes them to the destination
-	Create(<-chan *FileInfo) (<-chan *FileInfo, error)
+	Create(inputFileInfo <-chan *FileInfo) (<-chan *FileInfo, error)
 }
 
 // FileInfo is the data that is passed between pipeline steps

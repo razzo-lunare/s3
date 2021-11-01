@@ -8,6 +8,7 @@ import (
 
 	"k8s.io/klog/v2"
 
+	"github.com/razzo-lunare/s3/pkg/asciiterm"
 	"github.com/razzo-lunare/s3/pkg/sync/betav1"
 )
 
@@ -21,6 +22,8 @@ func (f *FileSystem) List() (<-chan *betav1.FileInfo, error) {
 }
 
 func listFiles(SyncDir string, localFiles chan *betav1.FileInfo) {
+	klog.V(1).Info("listing files on the filesystem")
+
 	walk := func(path string, d fs.DirEntry, e error) error {
 		if e != nil {
 			return fmt.Errorf("error in walk: %s", e)
@@ -28,7 +31,7 @@ func listFiles(SyncDir string, localFiles chan *betav1.FileInfo) {
 		if !d.IsDir() {
 			fileOnDiskMd5, err := hashFileMd5(path)
 			if err != nil {
-				klog.Errorf("Error calculating m5d of file on disk while listing: ", err)
+				klog.Error("Error calculating m5d of file on disk while listing. ", path, err)
 				return err
 			}
 
@@ -42,7 +45,9 @@ func listFiles(SyncDir string, localFiles chan *betav1.FileInfo) {
 
 	err := filepath.WalkDir(SyncDir, walk)
 	if err != nil {
-		klog.Errorf("walking directory error: ", err)
+		klog.Errorf("walking directory error: %s", err)
+	} else {
+		asciiterm.PrintfInfo("Finished Listing Files\n")
 	}
 
 	close(localFiles)

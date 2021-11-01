@@ -18,7 +18,8 @@ import (
 
 // List all s3 objects and passes them to the next step
 func (s *S3) List() (<-chan *betav1.FileInfo, error) {
-	asciiterm.PrintfWarn("Listing all objects in s3://%s", s.S3Path)
+	klog.V(1).Infof("Listing all objects in s3://%s\n", s.S3Path)
+
 	fileInfo := make(chan *betav1.FileInfo, 500)
 
 	go listS3Files(s.Config, s.S3Path, fileInfo)
@@ -27,10 +28,12 @@ func (s *S3) List() (<-chan *betav1.FileInfo, error) {
 }
 
 func listS3Files(s3Config *config.S3, s3Prefix string, outputFileInfo chan<- *betav1.FileInfo) {
-	numCPU := runtime.NumCPU()
+	numCPU := runtime.NumCPU() * 3
 	s3Prefixes := make(chan string, 10001)
 	goRoutineStatus := NewGoRoutineStatus(numCPU, s3Prefixes)
 	jobTimer := average.New()
+
+	initialS3Prefix := s3Prefix
 
 	for instanceID := 0; instanceID < numCPU; instanceID++ {
 		go handleListS3ObjectRecursive(
@@ -38,6 +41,7 @@ func listS3Files(s3Config *config.S3, s3Prefix string, outputFileInfo chan<- *be
 			jobTimer,
 			goRoutineStatus,
 			s3Config,
+			initialS3Prefix,
 			s3Prefixes,
 			outputFileInfo,
 		)
@@ -46,6 +50,7 @@ func listS3Files(s3Config *config.S3, s3Prefix string, outputFileInfo chan<- *be
 	// send the first prefix to the pool then the rest will search recursively
 	s3Prefixes <- s3Prefix
 
+	asciiterm.PrintfInfo("Listing S3 Objects '%s'\n", s3Prefix)
 	goRoutineStatus.Wait()
 
 	// Close recursive list goroutines to clean up them
@@ -58,7 +63,7 @@ func listS3Files(s3Config *config.S3, s3Prefix string, outputFileInfo chan<- *be
 }
 
 // handleListS3ObjectRecursive gathers the files in the S3
-func handleListS3ObjectRecursive(id int, jobTimer *average.JobAverageInt, goRoutineStatus *GoRoutineStatus, newConfig *config.S3, s3Prefixes chan string, outputFileInfo chan<- *betav1.FileInfo) {
+func handleListS3ObjectRecursive(id int, jobTimer *average.JobAverageInt, goRoutineStatus *GoRoutineStatus, newConfig *config.S3, initialS3Prefix string, s3Prefixes chan string, outputFileInfo chan<- *betav1.FileInfo) {
 
 	s3Client, err := minio.New(newConfig.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(newConfig.AccessKeyID, newConfig.AccessKey, ""),
@@ -82,16 +87,39 @@ func handleListS3ObjectRecursive(id int, jobTimer *average.JobAverageInt, goRout
 		}
 
 		for object := range s3Client.ListObjects(context.Background(), newConfig.BucketName, opts) {
-			if isDir(object.Key) {
+			// Skip object if it's the current object
+			if s3PrefixJob == object.Key {
+				continue
+			}
 
+			if isDir(object.Key) {
 				newPrefix := object.Key
 				s3Prefixes <- newPrefix
 
 				continue
 			}
+			objectName := object.Key
+			// Trim the initial prefix from the full prefix so the destination is relative to the source path. Remove
+			// the s3PrefixJob from the object name to ensure the comparison to the destination/source is accurate
+			// for example: --source filesystem://../fortuna-stock-data/TIME_SERIES_INTRADAY_V2/1min/2021-01-05/     --destination s3://fortuna-stock-data-new/test
+			//  we have to make sure we copy the content after the specified `source` to the destination. Refer to the examples below,
+			// notice only the contents of the source directory are copied to the specified destination location
+
+			//  e.g.
+			//       source file name == '../fortuna-stock-data/TIME_SERIES_INTRADAY_V2/1min/2021-01-05/GME'
+			//       source flag      == '--source filesystem://../fortuna-stock-data/TIME_SERIES_INTRADAY_V2/1min/'
+			//       destination flag == '--destination s3://fortuna-stock-data-new/test'
+			//       s3 destination   == '/test/2021-01-05/GME'
+
+			//  e.g.
+			//       source file name == '../fortuna-stock-data/TIME_SERIES_INTRADAY_V2/1min/2021-01-05/GME'
+			//       source flag      == '--source filesystem://../fortuna-stock-data/TIME_SERIES_INTRADAY_V2/1min/2021-01-05/'
+			//       destination flag == '--destination s3://fortuna-stock-data-new/test'
+			//       s3 destination   == '/test/GME'
+			relativeObjectName := strings.TrimPrefix(objectName, initialS3Prefix)
 
 			newFile := &betav1.FileInfo{
-				Name: object.Key,
+				Name: relativeObjectName,
 				MD5:  object.ETag,
 			}
 

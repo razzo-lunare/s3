@@ -9,6 +9,11 @@ build: test
 	mkdir -p _bin
 	env GOOS=${GOOS} GOARCH=${GOARCH} GOARM=6 go build -ldflags="-s -w" -o _bin/s3.${GOOS}.${GOARCH} github.com/razzo-lunare/s3/cmd/s3
 
+.PHONY: install
+install: test
+	mkdir -p _bin
+	env GOOS=${GOOS} GOARCH=${GOARCH} GOARM=6 go install -ldflags="-s -w" github.com/razzo-lunare/s3/cmd/s3
+
 .PHONY: build-linux
 build-linux: GOOS=linux
 build-linux: GOARCH=amd64

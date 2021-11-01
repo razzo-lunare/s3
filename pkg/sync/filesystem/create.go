@@ -50,7 +50,7 @@ func handleDownloadS3ObjectNew(wg *sync.WaitGroup, jobTimer *average.JobAverageI
 
 	for fileJob := range inputFiles {
 		jobTimer.StartTimer()
-		klog.V(2).Infof("Create S3: %s", fileJob.Name)
+		klog.V(2).Infof("Create file: %s", fileJob.Name)
 
 		tickerDestinationFile := syncDir + fileJob.Name
 
@@ -67,16 +67,19 @@ func handleDownloadS3ObjectNew(wg *sync.WaitGroup, jobTimer *average.JobAverageI
 			klog.Error(err)
 			continue
 		}
-		if fileJob.Content != nil {
-			if _, err = io.Copy(localFile, fileJob.Content); err != nil {
-				klog.Error(err)
+
+		if fileJob.Content != nil && localFile != nil {
+			if written, err := io.Copy(localFile, fileJob.Content); err != nil {
+				localFile.Close()
+				klog.Errorf("File: %s. Written Count %d Error: %s", tickerDestinationFile, written, err)
 				continue
 			}
 		} else {
-			// klog.Error("File Content to download was nil: ", fileJob.Name)
+			klog.Error("File Content to download was nil: ", fileJob.Name)
 		}
 
 		localFile.Close()
+		klog.V(1).Info("Created: ", fileJob.Name)
 
 		outputFileInfo <- fileJob
 		jobTimer.EndTimer()

@@ -7,8 +7,9 @@ import (
 
 // JobAverageInt average execution time of a thread
 type JobAverageInt struct {
-	Values []float64
-	Count  int
+	DisableTimer bool
+	Values       []float64
+	Count        int
 
 	lock sync.Mutex
 	time time.Time
@@ -25,17 +26,29 @@ func New() *JobAverageInt {
 
 // StartTimer starts the timer for a background proccess
 func (a *JobAverageInt) StartTimer() {
+	if a.DisableTimer {
+		return
+	}
+
 	a.time = time.Now()
 }
 
 // EndTimer ends the timer for a background proccess
 func (a *JobAverageInt) EndTimer() {
+	if a.DisableTimer {
+		return
+	}
+
 	duration := time.Since(a.time)
 	a.add(duration.Seconds())
 }
 
 // GetAverage  reurn the average exection time
 func (a *JobAverageInt) GetAverage() float64 {
+	if a.DisableTimer {
+		return 0.0
+	}
+
 	total := float64(0)
 	for _, value := range a.Values {
 		total += value
@@ -50,6 +63,10 @@ func (a *JobAverageInt) GetAverage() float64 {
 }
 
 func (a *JobAverageInt) add(newInt float64) {
+	if a.DisableTimer {
+		return
+	}
+
 	a.lock.Lock()
 	a.Values = append(a.Values, newInt)
 	a.Count++

@@ -46,14 +46,14 @@ download from s3
 ```bash
 s3 sync \
     --config configs/s3.yaml \
-    --source s3://fortuna-stock-data-new/TIME_SERIES_INTRADAY_V2/1min/2021-02-10/ \
-    --destination filesystem://_bin/fortuna-stock-data/
+    --source s3://fortuna-stock-data-new/ \
+    --destination filesystem://../fortuna-stock-data/
 ```
 
 upload to s3
 ```bash
 s3 sync \
     --config configs/s3.yaml \
-    --source filesystem://_bin/fortuna-stock-data/ \
-    --destination s3://fortuna-stock-data-new/TIME_SERIES_INTRADAY_V2/1min/2021-02-10/
+    --source filesystem://../fortuna-stock-data/
+    --destination s3://fortuna-stock-data-new/
 ```

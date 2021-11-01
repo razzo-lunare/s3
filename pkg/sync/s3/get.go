@@ -20,12 +20,12 @@ import (
 func (s *S3) Get(inputFiles <-chan *betav1.FileInfo) (<-chan *betav1.FileInfo, error) {
 	outputFileInfo := make(chan *betav1.FileInfo, 10001)
 
-	go getS3Files(s.Config, inputFiles, outputFileInfo)
+	go getS3Files(s.Config, s.S3Path, inputFiles, outputFileInfo)
 
 	return outputFileInfo, nil
 }
 
-func getS3Files(s3Config *config.S3, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
+func getS3Files(s3Config *config.S3, S3PathPrefix string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 	numCPU := runtime.NumCPU()
 	wg := &sync.WaitGroup{}
 	jobTimer := average.New()
@@ -36,6 +36,7 @@ func getS3Files(s3Config *config.S3, inputFiles <-chan *betav1.FileInfo, outputF
 			wg,
 			jobTimer,
 			s3Config,
+			S3PathPrefix,
 			inputFiles,
 			outputFileInfo,
 		)
@@ -48,7 +49,7 @@ func getS3Files(s3Config *config.S3, inputFiles <-chan *betav1.FileInfo, outputF
 }
 
 // handleListS3ObjectRecursive gathers the files in the S3
-func handleGetS3Object(wg *sync.WaitGroup, jobTimer *average.JobAverageInt, newConfig *config.S3, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
+func handleGetS3Object(wg *sync.WaitGroup, jobTimer *average.JobAverageInt, newConfig *config.S3, S3PathPrefix string, inputFiles <-chan *betav1.FileInfo, outputFileInfo chan<- *betav1.FileInfo) {
 
 	s3Client, err := minio.New(newConfig.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(newConfig.AccessKeyID, newConfig.AccessKey, ""),
@@ -60,25 +61,29 @@ func handleGetS3Object(wg *sync.WaitGroup, jobTimer *average.JobAverageInt, newC
 	}
 
 	for fileJob := range inputFiles {
-		klog.V(2).Infof("Get S3: %s", fileJob.Name)
 		jobTimer.StartTimer()
+
+		// Append the s3 prefix to the job filename so it's a full path to the resource in s3
+		fullObjectPath := S3PathPrefix + fileJob.Name
+
+		klog.V(2).Infof("Get S3 obj name: %s bucket name: %s", fullObjectPath, newConfig.BucketName)
 
 		s3Object, err := s3Client.GetObject(
 			context.Background(),
 			newConfig.BucketName,
-			fileJob.Name,
+			fullObjectPath,
 			minio.GetObjectOptions{},
 		)
 
 		if err != nil {
 			klog.Error("error making dir, ", err)
-
 			continue
 		}
 		if s3Object == nil {
 			klog.Error("Why was this nil?? ", fileJob.Name)
 			continue
 		}
+
 		newFileContent := &betav1.FileInfo{
 			Name:    fileJob.Name,
 			MD5:     fileJob.MD5,

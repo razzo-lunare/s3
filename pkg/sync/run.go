@@ -31,15 +31,15 @@ func Run(newConfig *config.S3Config, source betav1.SyncObject, destination betav
 	}
 
 	// Write the file/object content to the destination
-	downloadedFiles, err := destination.Create(s3FilesToDownload)
+	createFiles, err := destination.Create(s3FilesToDownload)
 	if err != nil {
 		return err
 	}
 
 	// Display the status and wait for the pipeline to finish
 	count := 0
-	for range downloadedFiles {
-		asciiterm.PrintfWarn("Downloaded s3 object Count: %d", count)
+	for range createFiles {
+		asciiterm.PrintfWarn("Create object Count: %d", count)
 
 		count++
 	}
