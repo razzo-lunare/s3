@@ -6,3 +6,4 @@ make clean
 make build-linux
 make build-arm
 make build-darwin
+make build-windows

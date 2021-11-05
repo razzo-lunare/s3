@@ -29,6 +29,11 @@ build-darwin: GOOS=darwin
 build-darwin: GOARCH=amd64
 build-darwin: build
 
+.PHONY: build-windows
+build-windows: GOOS=windows
+build-windows: GOARCH=amd64
+build-windows: build
+
 .PHONY: clean
 c: clean
 clean:
